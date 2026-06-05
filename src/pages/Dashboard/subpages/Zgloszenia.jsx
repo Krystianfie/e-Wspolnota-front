@@ -1,0 +1,255 @@
+import { useState, useEffect } from 'react';
+import { apiFetch, apiJson, toArray } from '../../../api/client';
+
+export default function Zgloszenia() {
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Stany formularza dodawania
+  const [newTitle, setNewTitle] = useState('');
+  const [newContent, setNewContent] = useState('');
+
+  // Stany wyszukiwania i filtrowania
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+
+  const [ticketsData, setTicketsData] = useState([]);
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  // 1. POBIERANIE ZGŁOSZEŃ
+  const fetchReports = async () => {
+    setIsLoading(true);
+    try {
+      const data = await apiJson('/api/reports');
+      setTicketsData(toArray(data, ['reports']));
+    } catch (error) {
+      console.error('Błąd połączenia z serwerem:', error);
+      setTicketsData([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 2. TWORZENIE ZGŁOSZENIA
+  const handleSaveTicket = async () => {
+    if (!newTitle || !newContent) return alert('Podaj tytuł i treść zgłoszenia!');
+    
+    const payload = {
+      title: newTitle,
+      description: newContent
+    };
+
+    try {
+      await apiJson('/api/reports/create', {
+        method: 'POST',
+        json: payload,
+      });
+
+      await fetchReports();
+      setNewTitle('');
+      setNewContent('');
+      setIsAddModalOpen(false);
+    } catch (error) {
+      console.error('Błąd wysyłania:', error);
+      alert('Brak połączenia z API.');
+    }
+  };
+
+  // 3. USUWANIE ZGŁOSZENIA
+  const handleDeleteTicket = async (reportId) => {
+    if (!reportId) {
+      alert('Nie można usunąć zgłoszenia bez identyfikatora z backendu.');
+      return;
+    }
+
+    const potwierdzenie = window.confirm('Czy na pewno chcesz usunąć to zgłoszenie?');
+    if (!potwierdzenie) return;
+
+    try {
+      const response = await apiFetch(`/api/reports/delete/${reportId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        await fetchReports();
+      } else if (response.status === 401 || response.status === 403) {
+        alert('Brak uprawnień! Tylko administrator może usuwać zgłoszenia.');
+      } else {
+        alert('Nie udało się usunąć zgłoszenia (Błąd serwera).');
+      }
+    } catch (error) {
+      console.error('Błąd usuwania:', error);
+      alert('Brak połączenia z API.');
+    }
+  };
+
+  // === PRZENIESIONE FUNKCJE POMOCNICZE (Muszą być przed filtrowaniem) ===
+  const getBadgeClass = (status) => {
+    if (status === 'W trakcie' || status === 'IN_PROGRESS') return 'badge-orange';
+    if (status === 'Nowe' || status === 'NEW' || status === 'OPEN') return 'badge-blue';
+    if (status === 'Zakończone' || status === 'RESOLVED' || status === 'CLOSED') return 'badge-green';
+    return 'badge-grey';
+  };
+
+  const getStatusLabel = (status) => {
+    if (status === 'IN_PROGRESS') return 'W trakcie';
+    if (status === 'NEW' || status === 'OPEN') return 'Nowe';
+    if (status === 'RESOLVED' || status === 'CLOSED') return 'Zakończone';
+    return status || 'Nieznany';
+  };
+
+  // === FILTROWANIE DANYCH ===
+  const safeDataToFilter = Array.isArray(ticketsData) ? ticketsData : [];
+  const filteredTickets = safeDataToFilter.filter(ticket => {
+    const matchesSearch = ticket.title?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          String(ticket.reportNumber || ticket.reportId).includes(searchTerm);
+    
+    // Teraz getStatusLabel jest już znane programowi i zadziała bez błędu
+    const ticketPolishStatus = getStatusLabel(ticket.status);
+    const matchesStatus = filterStatus ? ticketPolishStatus === filterStatus : true;
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  return (
+    <div className="subpage-container">
+      {/* NAGŁÓWEK */}
+      <div className="subpage-header">
+        <h1 style={{ fontWeight: 'bold' }}>Zgłoszenia</h1>
+
+        <div className="header-actions">
+          <div className="search-wrapper">
+            <span className="search-icon">🔍</span>
+            <input 
+              type="text" 
+              placeholder="Szukaj..." 
+              className="search-input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <button className="filter-btn" onClick={() => setIsFilterModalOpen(true)}>
+            <span style={{ fontSize: '18px' }}>Y</span>
+          </button>
+          
+          <button className="add-btn-blue" onClick={() => setIsAddModalOpen(true)}>
+            + Dodaj zgłoszenie
+          </button>
+        </div>
+      </div>
+
+      {/* TABELA ZGŁOSZEŃ */}
+      {isLoading ? (
+        <p style={{ textAlign: 'center', marginTop: '20px', color: '#718096' }}>Ładowanie zgłoszeń z bazy...</p>
+      ) : (
+        <div className="tickets-table-container">
+          <div className="table-header-row">
+            <div className="col-id" style={{ width: '10%' }}>ID</div>
+            <div className="col-title" style={{ width: '45%' }}>Tytuł</div>
+            <div className="col-date" style={{ width: '20%' }}>Data Zgłoszenia</div>
+            <div className="col-status" style={{ width: '15%' }}>Status</div>
+            <div className="col-actions" style={{ width: '10%', textAlign: 'center' }}>Akcje</div>
+          </div>
+          
+          <div className="table-body">
+            {filteredTickets.map((ticket, index) => (
+              <div key={ticket.uuid || ticket.reportId || ticket.id || index}>
+                <div className="table-row">
+                  <div className="col-id font-bold" style={{ width: '10%' }}>
+                    #{ticket.reportNumber || ticket.reportId || ticket.id || ticket.uuid}
+                  </div>
+                  
+                  <div className="col-title" style={{ width: '45%' }}>{ticket.title || 'Brak tytułu'}</div>
+                  
+                  <div className="col-date" style={{ width: '20%' }}>
+                    {ticket.createdDate ? new Date(ticket.createdDate).toLocaleDateString('pl-PL') : 'Brak daty'}
+                  </div>
+                  
+                  <div className="col-status" style={{ width: '15%' }}>
+                    <span className={`badge-pill ${getBadgeClass(ticket.status)}`}>
+                      {getStatusLabel(ticket.status)}
+                    </span>
+                  </div>
+                  
+                  <div className="col-actions" style={{ width: '10%', textAlign: 'center' }}>
+                    <button 
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#e53e3e' }}
+                      title="Usuń zgłoszenie"
+                      onClick={() => handleDeleteTicket(ticket.uuid || ticket.reportId || ticket.id)}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+
+                </div>
+                <hr className="divider-line" />
+              </div>
+            ))}
+            {filteredTickets.length === 0 && (
+              <p style={{ textAlign: 'center', marginTop: '20px', color: '#718096' }}>Brak wyników do wyświetlenia.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: DODAJ ZGŁOSZENIE */}
+      {isAddModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-box">
+            <h3 className="modal-label">Tytuł zgłoszenia</h3>
+            <input 
+              type="text" 
+              className="modal-input" 
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+            />
+
+            <h3 className="modal-label">Treść zgłoszenia</h3>
+            <textarea 
+              className="modal-textarea" 
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+            ></textarea>
+
+            <div className="modal-buttons">
+              <button className="modal-btn-save" onClick={handleSaveTicket}>Zapisz</button>
+              <button className="modal-btn-cancel" onClick={() => setIsAddModalOpen(false)}>Anuluj</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: FILTRUJ ZGŁOSZENIA */}
+      {isFilterModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-box">
+            <h3 className="modal-label">Data zgłoszenia</h3>
+            <input type="date" className="modal-input" />
+
+            <h3 className="modal-label">Status zgłoszenia</h3>
+            <div className="modal-category-row" style={{ flexWrap: 'wrap', gap: '10px' }}>
+              {['Zakończone', 'Nowe', 'W trakcie'].map(status => (
+                <button 
+                  key={status}
+                  className={`category-btn ${filterStatus === status ? getBadgeClass(status) : 'cat-inactive'}`}
+                  onClick={() => setFilterStatus(filterStatus === status ? '' : status)}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+
+            <div className="modal-buttons" style={{ marginTop: '40px' }}>
+              <button className="modal-btn-save" onClick={() => setIsFilterModalOpen(false)}>Aplikuj</button>
+              <button className="modal-btn-cancel" onClick={() => { setFilterStatus(''); setIsFilterModalOpen(false); }}>Wyczyść</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
