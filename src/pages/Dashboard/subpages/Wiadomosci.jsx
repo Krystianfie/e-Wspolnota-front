@@ -8,6 +8,8 @@ export default function Wiadomosci() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const [userSearchTerm, setUserSearchTerm] = useState('');
   
   const messagesEndRef = useRef(null);
 
@@ -160,49 +162,59 @@ export default function Wiadomosci() {
         {/* =============== LEWY PANEL: STAŁA LISTA MIESZKAŃCÓW =============== */}
         <div style={{ width: '320px', backgroundColor: '#ffffff', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '25px 20px', borderBottom: '1px solid #edf2f7', flexShrink: 0 }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#1a202c', margin: 0 }}>Mieszkańcy</h2>
+            <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#1a202c', margin: '0 0 15px 0' }}>Mieszkańcy</h2>
+            <input 
+              type="text" 
+              placeholder="Wyszukaj po imieniu i nazwisku..."
+              value={userSearchTerm}
+              onChange={(e) => setUserSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e0',
+                fontSize: '13px',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
+            />
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
-            {users.map(u => {
+          <div style={{ flex: 1, overflowY: 'auto', backgroundColor: 'white' }}>
+            {users
+              .filter(u => {
+                const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+                return fullName.includes(userSearchTerm.toLowerCase());
+              })
+              .map((u, i) => {
               const uId = u.userId || u.uuid || u.id;
               const isSelected = selectedUser && (selectedUser.userId || selectedUser.uuid || selectedUser.id) === uId;
               
               return (
                 <div 
-                  key={uId}
+                  key={uId || `user-chat-${i}`}
                   onClick={() => setSelectedUser(u)}
                   style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    padding: '12px 15px', 
-                    marginBottom: '10px', 
-                    borderRadius: '10px', 
+                    padding: '15px 20px', 
                     cursor: 'pointer',
-                    border: isSelected ? '1px solid #3182ce' : '1px solid #e2e8f0',
-                    backgroundColor: isSelected ? '#ebf8ff' : '#ffffff',
+                    borderBottom: '1px solid #edf2f7',
+                    fontSize: '14px',
+                    color: '#2d3748',
+                    backgroundColor: isSelected ? '#ebf8ff' : 'white',
                     transition: 'all 0.2s ease'
                   }}
+                  onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = '#f7fafc'; }}
+                  onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'white'; }}
                 >
-                  <div style={{ 
-                    width: '42px', height: '42px', borderRadius: '50%', backgroundColor: isSelected ? '#3182ce' : '#e2e8f0', 
-                    color: isSelected ? 'white' : '#2b6cb0', display: 'flex', justifyContent: 'center', alignItems: 'center', 
-                    fontWeight: 'bold', fontSize: '15px', flexShrink: 0, marginRight: '15px'
-                  }}>
-                    {getInitials(u.firstName, u.lastName)}
-                  </div>
-
-                  <div style={{ overflow: 'hidden' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#2d3748', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                      {u.firstName} {u.lastName}
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#718096', marginTop: '3px' }}>
-                      Mieszkanie {u.homeNumber || '---'}
-                    </div>
-                  </div>
+                  <strong>{u.firstName} {u.lastName}</strong> {u.homeNumber ? `(lok. ${u.homeNumber})` : ''}
                 </div>
               );
             })}
+            {users.filter(u => `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase().includes(userSearchTerm.toLowerCase())).length === 0 && (
+              <div style={{ padding: '15px 20px', color: '#a0aec0', fontSize: '13px', textAlign: 'center' }}>
+                Nie znaleziono użytkownika
+              </div>
+            )}
           </div>
         </div>
 
