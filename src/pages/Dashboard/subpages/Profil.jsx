@@ -2,6 +2,44 @@ import { useState, useEffect } from 'react';
 import { apiJson, getUserFromResponse } from '../../../api/client';
 import { getRoleLabel, getUserId, isAdminUser } from '../../../utils/user';
 
+const getProfileNote = (profile) => (
+  profile && 'note' in profile ? profile.note :
+  profile && 'notes' in profile ? profile.notes :
+  profile && 'userNote' in profile ? profile.userNote :
+  profile && 'description' in profile ? profile.description :
+  ''
+);
+
+const getApiErrorMessage = async (error, fallbackMessage) => {
+  const response = error?.response;
+  if (!response) return fallbackMessage;
+
+  try {
+    const contentType = response.headers.get('content-type') || '';
+    const payload = contentType.includes('application/json')
+      ? await response.json()
+      : await response.text();
+
+    if (typeof payload === 'string') {
+      return payload || fallbackMessage;
+    }
+
+    const fieldError = Array.isArray(payload?.errors)
+      ? payload.errors.find(Boolean)
+      : null;
+
+    return (
+      payload?.message ||
+      payload?.error ||
+      fieldError?.message ||
+      fieldError ||
+      fallbackMessage
+    );
+  } catch {
+    return fallbackMessage;
+  }
+};
+
 export default function Profil({ user }) {
   const [userData, setUserData] = useState(user || null);
   const [isLoading, setIsLoading] = useState(true);
@@ -13,37 +51,53 @@ export default function Profil({ user }) {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [isEmailEditMode, setIsEmailEditMode] = useState(false);
   const [editedEmail, setEditedEmail] = useState(user?.email || '');
+  const [emailPassword, setEmailPassword] = useState('');
   const [isSavingEmail, setIsSavingEmail] = useState(false);
+  const [isNoteEditMode, setIsNoteEditMode] = useState(false);
+  const [editedNote, setEditedNote] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const applyLoadedUser = (profile) => {
+      setUserData(profile);
+      setEditedEmail(profile?.email || '');
+      setEmailPassword('');
+      setEditedNote(getProfileNote(profile));
+    };
+
+    const fetchUserProfile = async () => {
+      setIsLoading(true);
+      const userId = getUserId(user);
+
+      if (!userId) {
+        if (isMounted) {
+          applyLoadedUser(user || null);
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const data = await apiJson(`/api/user/${userId}`);
+        if (isMounted) {
+          applyLoadedUser(getUserFromResponse(data) || user || null);
+        }
+      } catch (error) {
+        console.error('Błąd połączenia z API profilu:', error);
+        if (isMounted) applyLoadedUser(user || null);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
     fetchUserProfile();
+
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
-
-  useEffect(() => {
-    setEditedEmail(userData?.email || user?.email || '');
-  }, [userData?.email, user?.email]);
-
-  // POBIERANIE DANYCH PROFILU
-  const fetchUserProfile = async () => {
-    setIsLoading(true);
-    const userId = getUserId(user);
-
-    if (!userId) {
-      setUserData(user || null);
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const data = await apiJson(`/api/user/${userId}`);
-      setUserData(getUserFromResponse(data) || user || null);
-    } catch (error) {
-      console.error('Błąd połączenia z API profilu:', error);
-      setUserData(user || null);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // 2. ZMIANA HASŁA (POST)
   const handleChangePassword = async (e) => {
@@ -73,26 +127,41 @@ export default function Profil({ user }) {
 
   const handleSaveEmail = async (e) => {
     e.preventDefault();
-    if (!editedEmail) return alert('Wprowadź adres e-mail.');
+    const nextEmail = editedEmail.trim();
 
-    const userId = getUserId(user);
-    if (!userId) return alert('Nie można zaktualizować adresu e-mail bez identyfikatora użytkownika.');
+    if (!nextEmail) return alert('Wprowadź adres e-mail.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
+      return alert('Wprowadź poprawny adres e-mail.');
+    }
+    if (!emailPassword) return alert('Wprowadź aktualne hasło, aby zmienić e-mail.');
 
     setIsSavingEmail(true);
 
     try {
-      const data = await apiJson(`/api/user/${userId}`, {
-        method: 'PUT',
-        json: { email: editedEmail },
+      const data = await apiJson('/api/user/updateEmail', {
+        method: 'PATCH',
+        json: {
+          email: nextEmail,
+          password: emailPassword,
+        },
       });
 
-      const updatedUser = getUserFromResponse(data) || { ...userData, email: editedEmail };
+      const updatedUser = getUserFromResponse(data) || { ...userData, email: nextEmail };
       setUserData(updatedUser);
+      setEditedEmail(nextEmail);
+      setEmailPassword('');
       setIsEmailEditMode(false);
       alert('E-mail został zaktualizowany.');
     } catch (error) {
-      console.error('Błąd aktualizacji e-maila:', error);
-      alert('Nie udało się zaktualizować e-maila.');
+      const message = await getApiErrorMessage(
+        error,
+        error?.status === 400
+          ? 'Backend odrzucił dane. Sprawdź adres e-mail i aktualne hasło.'
+          : 'Nie udało się zaktualizować e-maila.'
+      );
+
+      console.error('Błąd aktualizacji e-maila:', error, message);
+      alert(message);
     } finally {
       setIsSavingEmail(false);
     }
@@ -101,6 +170,51 @@ export default function Profil({ user }) {
   const handleCancelEmailEdit = () => {
     setIsEmailEditMode(false);
     setEditedEmail(userData?.email || user?.email || '');
+    setEmailPassword('');
+  };
+
+  const handleSaveNote = async () => {
+    // Solidne poszukiwanie UUID użytkownika - kluczowe dla poprawnego strzału API
+    const userUuid = userData?.userId || userData?.uuid || userData?.id || user?.userId || user?.uuid || user?.id || getUserId(userData) || getUserId(user);
+    if (!userUuid) return alert('Nie można zapisać notatki bez identyfikatora użytkownika.');
+
+    setIsSavingNote(true);
+
+    try {
+      const data = await apiJson('/api/user/updateNote', {
+        method: 'PATCH',
+        json: {
+          note: editedNote,
+          uuid: userUuid,
+        },
+      });
+
+      const updatedUser = getUserFromResponse(data);
+      setUserData((previousUser) => ({
+        ...previousUser,
+        ...(updatedUser || {}),
+        note: getProfileNote(updatedUser) || editedNote,
+      }));
+      setIsNoteEditMode(false);
+      alert('Notatka została zapisana.');
+    } catch (error) {
+      const message = await getApiErrorMessage(
+        error,
+        error?.status === 400
+          ? 'Backend odrzucił notatkę. Sprawdź treść i identyfikator użytkownika.'
+          : 'Nie udało się zapisać notatki.'
+      );
+
+      console.error('Błąd zapisu notatki:', error, message);
+      alert(message);
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
+
+  const handleCancelNoteEdit = () => {
+    setIsNoteEditMode(false);
+    setEditedNote(getProfileNote(userData));
   };
 
   if (isLoading) {
@@ -113,7 +227,7 @@ export default function Profil({ user }) {
 
   const isUserAdmin = isAdminUser(userData);
   const roleLabel = getRoleLabel(userData);
-  const roleColor = isUserAdmin ? '#ef4444' : '#10b981'; // Czerwony dla admina, zielony dla mieszkańca
+  const roleColor = isUserAdmin ? '#ef4444' : '#10b981';
 
   const cardStyle = {
     backgroundColor: '#f3f4f6', 
@@ -160,7 +274,6 @@ export default function Profil({ user }) {
             <h2 style={{ fontSize: '26px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#1a202c', fontFamily: 'serif' }}>
               {userData.firstName} {userData.lastName}
             </h2>
-            {/* Tutaj zastosowano dynamiczny kolor w zależności od uprawnień */}
             <p style={{ margin: '0 0 5px 0', color: roleColor, fontSize: '16px', fontWeight: 'bold' }}>
               {roleLabel}
             </p>
@@ -194,20 +307,36 @@ export default function Profil({ user }) {
             <div style={{ width: '100%' }}>
               <span style={{ fontWeight: 'bold' }}>E-MAIL: </span>
               {isEmailEditMode ? (
-                <input
-                  type="email"
-                  value={editedEmail}
-                  onChange={(e) => setEditedEmail(e.target.value)}
-                  style={{
-                    width: '100%',
-                    marginTop: '8px',
-                    padding: '10px 14px',
-                    borderRadius: '10px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '14px',
-                    color: '#1a202c',
-                  }}
-                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
+                  <input
+                    type="email"
+                    value={editedEmail}
+                    onChange={(e) => setEditedEmail(e.target.value)}
+                    placeholder="Nowy adres e-mail"
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '14px',
+                      color: '#1a202c',
+                    }}
+                  />
+                  <input
+                    type="password"
+                    value={emailPassword}
+                    onChange={(e) => setEmailPassword(e.target.value)}
+                    placeholder="Aktualne hasło"
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '14px',
+                      color: '#1a202c',
+                    }}
+                  />
+                </div>
               ) : (
                 <span>{userData.email}</span>
               )}
@@ -254,12 +383,116 @@ export default function Profil({ user }) {
         </div>
       </div>
 
-      {/* DOLNA SEKCJA: NOTATKI */}
-      <div style={{ ...cardStyle, marginTop: '30px', padding: '25px', minHeight: '250px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <span style={{ fontWeight: 'bold', fontSize: '16px', color: '#1a202c' }}>Dodaj notkę...</span>
-          {pencilIcon}
+      {/* ==================================================== */}
+      {/* DOLNA SEKCJA: NOTATKI (POPRAWIONA INTERAKCJA)        */}
+      {/* ==================================================== */}
+      <div 
+        style={{ 
+          ...cardStyle, 
+          marginTop: '30px', 
+          padding: '25px', 
+          minHeight: '250px',
+          cursor: isNoteEditMode ? 'default' : 'pointer', // Pokazuje, że można w to kliknąć
+          transition: 'background-color 0.2s ease'
+        }}
+        // KLIKNIĘCIE W CAŁE POLE AKTYWUJE EDYCJĘ:
+        onClick={() => {
+          if (!isNoteEditMode) {
+            setEditedNote(getProfileNote(userData) || '');
+            setIsNoteEditMode(true);
+          }
+        }}
+        onMouseEnter={(e) => {
+          if (!isNoteEditMode) e.currentTarget.style.backgroundColor = '#edf2f7';
+        }}
+        onMouseLeave={(e) => {
+          if (!isNoteEditMode) e.currentTarget.style.backgroundColor = '#f3f4f6';
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px' }}>
+          <div style={{ flex: 1 }}>
+            <span style={{ fontWeight: 'bold', fontSize: '16px', color: '#1a202c' }}>Notatka</span>
+            {isNoteEditMode ? (
+              <textarea
+                value={editedNote}
+                onChange={(e) => setEditedNote(e.target.value)}
+                onClick={(e) => e.stopPropagation()} // BLOKADA: Zapobiega bugowaniu po kliknięciu w środek pola tekstowego
+                placeholder="Dodaj notatkę..."
+                autoFocus // Kursor automatycznie ląduje w polu
+                style={{
+                  width: '100%',
+                  minHeight: '160px',
+                  marginTop: '16px',
+                  padding: '14px',
+                  borderRadius: '12px',
+                  border: '1px solid #cbd5e1',
+                  resize: 'vertical',
+                  fontFamily: 'inherit',
+                  fontSize: '14px',
+                  color: '#1a202c',
+                  backgroundColor: '#ffffff',
+                  outline: 'none'
+                }}
+              />
+            ) : (
+              <p style={{
+                margin: '16px 0 0',
+                color: getProfileNote(userData) ? '#4a5568' : '#a0aec0',
+                fontSize: '14px',
+                lineHeight: '1.6',
+                whiteSpace: 'pre-wrap',
+              }}>
+                {getProfileNote(userData) || 'Brak notatki. Kliknij tutaj, aby ją dodać...'}
+              </p>
+            )}
+          </div>
+
+          {!isNoteEditMode && (
+            <div style={{ color: '#a0aec0' }}>
+              {pencilIcon}
+            </div>
+          )}
         </div>
+
+        {isNoteEditMode && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation(); // BLOKADA
+                handleCancelNoteEdit();
+              }}
+              style={{
+                padding: '10px 16px',
+                borderRadius: '10px',
+                border: '1px solid #cbd5e1',
+                backgroundColor: 'white',
+                color: '#4a5568',
+                cursor: 'pointer',
+              }}
+            >
+              Anuluj
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation(); // BLOKADA
+                handleSaveNote();
+              }}
+              disabled={isSavingNote}
+              style={{
+                padding: '10px 16px',
+                borderRadius: '10px',
+                border: 'none',
+                backgroundColor: '#2b6cb0',
+                color: 'white',
+                cursor: isSavingNote ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {isSavingNote ? 'Zapisywanie...' : 'Zapisz'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ZMIANA HASŁA */}

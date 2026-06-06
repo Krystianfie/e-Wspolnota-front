@@ -1,532 +1,308 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { apiJson, toArray } from '../../../api/client';
-import { getUserId, getUserName } from '../../../utils/user';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
-const avatarStyle = {
-  width: '38px',
-  height: '38px',
-  borderRadius: '50%',
-  backgroundColor: '#dbeafe',
-  color: '#0a3663',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontWeight: 'bold',
-  flexShrink: 0,
-};
-
-const getThreadId = (thread) => (
-  thread?.uuid ||
-  thread?.threadId ||
-  thread?.id ||
-  thread?.recipientId ||
-  thread?.participantId ||
-  thread?.userId ||
-  ''
-);
-
-const getThreadIds = (thread) => [
-  thread?.uuid,
-  thread?.threadId,
-  thread?.id,
-  thread?.recipientId,
-  thread?.participantId,
-  thread?.userId,
-  thread?.recipient?.uuid,
-  thread?.recipient?.id,
-  thread?.participant?.uuid,
-  thread?.participant?.id,
-].filter(Boolean).map((id) => String(id));
-
-const doesThreadMatchId = (thread, threadId) => {
-  if (!thread || threadId == null) return false;
-  const normalizedId = String(threadId);
-  return getThreadIds(thread).includes(normalizedId);
-};
-
-const getThreadRecipientId = (thread, currentUserId) => {
-  if (!thread) return '';
-
-  if (thread?.user1Id && thread?.user2Id) {
-    const user1Id = String(thread.user1Id);
-    const user2Id = String(thread.user2Id);
-    const currentId = String(currentUserId || '');
-
-    if (currentId && user1Id === currentId && user2Id) return user2Id;
-    if (currentId && user2Id === currentId && user1Id) return user1Id;
-
-    return user2Id || user1Id || '';
-  }
-
-  return (
-    thread?.recipientId ||
-    thread?.participantId ||
-    thread?.userId ||
-    thread?.recipient?.uuid ||
-    thread?.recipient?.id ||
-    thread?.participant?.uuid ||
-    thread?.participant?.id ||
-    ''
-  );
-};
-
-const getPersonName = (person) => {
-  const fullName = `${person?.firstName || ''} ${person?.lastName || ''}`.trim();
-  return fullName || person?.username || person?.name || '';
-};
-
-const getThreadName = (thread) => (
-  thread?.name ||
-  thread?.recipientName ||
-  thread?.participantName ||
-  getPersonName(thread?.recipient) ||
-  getPersonName(thread?.participant) ||
-  getPersonName(thread?.user) ||
-  'Rozmowa'
-);
-
-const getInitialsFromName = (name) => {
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('');
-
-  return (initials || 'R').toLocaleUpperCase('pl-PL');
-};
-
-const getMessageContent = (message) => (
-  message?.content ||
-  message?.text ||
-  message?.message ||
-  ''
-);
-
-const getMessageDate = (message) => (
-  message?.createdDate ||
-  message?.createdAt ||
-  message?.sentAt ||
-  message?.time ||
-  ''
-);
-
-const getMessageSenderId = (message) => (
-  message?.senderId ||
-  message?.sender?.uuid ||
-  message?.sender?.id ||
-  message?.fromId ||
-  message?.authorId ||
-  message?.sender?.userId ||
-  ''
-);
-
-const getMessageSenderName = (message, currentUserId, currentUserName, activePartnerName) => {
-  const sender = message?.sender || message?.from || message?.author || {};
-  const senderName = `${sender?.firstName || ''} ${sender?.lastName || ''}`.trim();
-
-  if (senderName) return senderName;
-  if (sender?.name) return sender.name;
-  if (sender?.username) return sender.username;
-  if (sender?.fullName) return sender.fullName;
-  if (sender?.displayName) return sender.displayName;
-
-  const senderId = getMessageSenderId(message);
-  const normalizedCurrentId = String(currentUserId || '');
-  const normalizedSenderId = String(senderId || '');
-
-  if (normalizedSenderId && normalizedSenderId === normalizedCurrentId) {
-    return currentUserName || 'Ty';
-  }
-
-  if (activePartnerName && normalizedSenderId && normalizedSenderId !== normalizedCurrentId) {
-    return activePartnerName;
-  }
-
-  return message?.senderName || message?.fromName || message?.authorName || '';
-};
-
-const formatMessageTime = (value) => {
-  if (!value) {
-    return '';
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  const today = new Date();
-  const isToday = date.toDateString() === today.toDateString();
-
-  return isToday
-    ? date.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
-    : date.toLocaleDateString('pl-PL');
-};
-
-const parseUserFromEndpoint = (data) => {
-  const users = toArray(data, ['users', 'user']);
-  if (users.length > 0) return users[0];
-  if (data?.user) return data.user;
-  return data;
-};
-
-const getThreadLastMessage = (thread) => (
-  thread?.lastMsg ||
-  thread?.lastMessage ||
-  thread?.lastMessageContent ||
-  getMessageContent(thread?.lastMessageObject) ||
-  ''
-);
-
-const getThreadUnreadCount = (thread) => Number(thread?.unreadCount || thread?.unread || 0);
-
-const isOwnMessage = (message, currentUserId) => {
-  if (typeof message?.isMine === 'boolean') return message.isMine;
-  if (typeof message?.mine === 'boolean') return message.mine;
-
-  const senderId = message?.senderId || message?.sender?.uuid || message?.sender?.id;
-
-  return Boolean(currentUserId && senderId && String(senderId) === String(currentUserId));
-};
-
-export default function Wiadomosci({ user }) {
-  const currentUserId = getUserId(user);
-  const [currentUserName, setCurrentUserName] = useState(getUserName(user));
-  const [searchTerm, setSearchTerm] = useState('');
-  const [newMessage, setNewMessage] = useState('');
-  const [activeThreadId, setActiveThreadId] = useState('');
-  const [threads, setThreads] = useState([]);
+export default function Wiadomosci() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null);
+  
   const [messages, setMessages] = useState([]);
-  const [isLoadingThreads, setIsLoadingThreads] = useState(true);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [error, setError] = useState('');
-  const [threadPartnerNames, setThreadPartnerNames] = useState({});
+  const [newMessage, setNewMessage] = useState('');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
   const messagesEndRef = useRef(null);
-  const previousThreadIdRef = useRef('');
-  const previousMessagesLengthRef = useRef(0);
-  const previousLastMessageIdRef = useRef('');
 
-  const activeThread = useMemo(
-    () => activeThreadId ? threads.find((thread) => doesThreadMatchId(thread, activeThreadId)) : null,
-    [activeThreadId, threads]
-  );
-
-  const activeConversationName = useMemo(
-    () => activeThreadId ? threadPartnerNames[activeThreadId] || getThreadName(activeThread) : '',
-    [activeThreadId, threadPartnerNames, activeThread]
-  );
-
-  const filteredThreads = useMemo(
-    () => threads.filter((thread) =>
-      getThreadName(thread).toLowerCase().includes(searchTerm.toLowerCase())
-    ),
-    [searchTerm, threads]
-  );
-
-  const fetchThreads = async () => {
-    setIsLoadingThreads(true);
-    setError('');
-
-    try {
-      const data = await apiJson('/api/messaging/threads');
-      const nextThreads = toArray(data, ['threads']);
-
-      setThreads(nextThreads);
-
-      if (nextThreads.length > 0) {
-        const hasActiveThread = activeThreadId && nextThreads.some((thread) => doesThreadMatchId(thread, activeThreadId));
-        if (!activeThreadId || !hasActiveThread) {
-          setActiveThreadId(getThreadId(nextThreads[0]));
-        }
-      } else {
-        setActiveThreadId('');
-        setMessages([]);
-      }
-    } catch (fetchError) {
-      console.error('Błąd pobierania wątków wiadomości:', fetchError);
-      setError('Nie udało się pobrać wiadomości z backendu.');
-    } finally {
-      setIsLoadingThreads(false);
-    }
-  };
-
-  const fetchThreadMessages = async (threadId) => {
-    if (!threadId) {
-      setMessages([]);
-      return;
-    }
-
-    setIsLoadingMessages(true);
-
-    try {
-      const data = await apiJson(`/api/messaging/thread/${threadId}`);
-      setMessages(toArray(data, ['messages']));
-    } catch (fetchError) {
-      console.error('Błąd pobierania wiadomości wątku:', fetchError);
-    } finally {
-      setIsLoadingMessages(false);
-    }
-  };
-
+  // 1. AUTOMATYCZNE POBIERANIE MIESZKAŃCÓW OD RAZU NA STARCIE
   useEffect(() => {
-    const fetchCurrentUser = async () => {
+    const fetchInitialData = async () => {
       try {
-        const data = await apiJson('/api/user');
-        const userData = parseUserFromEndpoint(data);
-        if (userData) setCurrentUserName(getUserName(userData));
-      } catch (fetchError) {
-        console.error('Błąd pobierania danych użytkownika:', fetchError);
+        const meRes = await fetch('http://ketyo.online/api/user/me');
+        let meData = null;
+        if (meRes.ok) {
+          const data = await meRes.json();
+          if (data.success && data.user) {
+            meData = data.user;
+            setCurrentUser(meData);
+          }
+        }
+
+        const usersRes = await fetch('http://ketyo.online/api/user');
+        if (usersRes.ok) {
+          const data = await usersRes.json();
+          const userList = Array.isArray(data) ? data : (data.users || []);
+          
+          if (meData) {
+            const myId = meData.userId || meData.uuid || meData.id;
+            setUsers(userList.filter(u => (u.userId || u.uuid || u.id) !== myId));
+          } else {
+            setUsers(userList);
+          }
+        }
+      } catch (error) {
+        console.error('Błąd pobierania danych użytkowników:', error);
       }
     };
 
-    fetchCurrentUser();
+    fetchInitialData();
   }, []);
 
-  useEffect(() => {
-    if (!threads.length || !currentUserId) return;
-
-    const threadsToFetch = threads.filter((thread) => {
-      const threadId = getThreadId(thread);
-      if (!threadId) return false;
-      if (threadPartnerNames[threadId]) return false;
-      return getThreadName(thread) === 'Rozmowa';
-    });
-
-    if (threadsToFetch.length === 0) return;
-
-    let cancelled = false;
-
-    const fetchNames = async () => {
-      const fetchedNames = {};
-
-      await Promise.all(threadsToFetch.map(async (thread) => {
-        const threadId = getThreadId(thread);
-        const partnerId = getThreadRecipientId(thread, currentUserId);
-        if (!threadId || !partnerId) return;
-
-        try {
-          const data = await apiJson(`/api/user/${partnerId}`);
-          const partnerData = parseUserFromEndpoint(data);
-          if (!cancelled && partnerData) {
-            fetchedNames[threadId] = getUserName(partnerData);
-          }
-        } catch (fetchError) {
-          console.error('Błąd pobierania danych partnera czatu:', fetchError);
-        }
-      }));
-
-      if (!cancelled && Object.keys(fetchedNames).length > 0) {
-        setThreadPartnerNames((prev) => ({ ...prev, ...fetchedNames }));
-      }
-    };
-
-    fetchNames();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [threads, currentUserId, threadPartnerNames]);
-
-  useEffect(() => {
-    fetchThreads();
-
-    const threadsInterval = setInterval(() => {
-      fetchThreads();
-    }, 10000);
-
-    return () => clearInterval(threadsInterval);
-  }, [currentUserId, activeThreadId]);
-
-  useEffect(() => {
-    fetchThreadMessages(activeThreadId);
-
-    if (!activeThreadId) return undefined;
-
-    const messagesInterval = setInterval(() => {
-      fetchThreadMessages(activeThreadId);
-    }, 10000);
-
-    return () => clearInterval(messagesInterval);
-  }, [activeThreadId]);
-
-  useEffect(() => {
-    if (!messagesEndRef.current) return;
-
-    const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
-    const lastMessageId =
-      lastMessage?.uuid ||
-      lastMessage?.id ||
-      lastMessage?.messageId ||
-      lastMessage?.createdDate ||
-      lastMessage?.sentAt ||
-      lastMessage?.updatedAt ||
-      '';
-
-    const shouldScroll =
-      Boolean(activeThreadId) &&
-      (
-        previousThreadIdRef.current !== activeThreadId ||
-        messages.length > previousMessagesLengthRef.current ||
-        (messages.length > 0 && lastMessageId && lastMessageId !== previousLastMessageIdRef.current)
-      );
-
-    if (shouldScroll) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }
-
-    previousThreadIdRef.current = activeThreadId;
-    previousMessagesLengthRef.current = messages.length;
-    previousLastMessageIdRef.current = lastMessageId;
-  }, [messages, activeThreadId]);
-
-  const handleSendMessage = async (event) => {
-    event.preventDefault();
-
-    const content = newMessage.trim();
-    if (!content || !activeThread) return;
-
-    const recipientId = getThreadRecipientId(activeThread, currentUserId);
-
-    if (!recipientId) {
-      alert('Nie można wysłać wiadomości bez odbiorcy z backendu.');
-      return;
-    }
+  // 2. ODŚWIEŻANIE WIADOMOŚCI (SILENT POLLING CO 3 SEKUNDY)
+  const pollMessages = useCallback(async () => {
+    if (!selectedUser) return;
+    
+    const targetUserId = selectedUser.userId || selectedUser.uuid || selectedUser.id;
+    let threadIdToFetch = targetUserId; 
 
     try {
-      await apiJson('/api/messaging/send', {
+      const threadsRes = await fetch('http://ketyo.online/api/messaging/threads');
+      if (threadsRes.ok) {
+        const threadsData = await threadsRes.json();
+        const allThreads = Array.isArray(threadsData) ? threadsData : (threadsData.threads || []);
+        
+        for (const t of allThreads) {
+          if (JSON.stringify(t).includes(targetUserId)) {
+            threadIdToFetch = t.threadId || t.uuid || t.id || targetUserId;
+            break;
+          }
+        }
+      }
+
+      const msgRes = await fetch(`http://ketyo.online/api/messaging/thread/${threadIdToFetch}`);
+      if (msgRes.ok) {
+        const data = await msgRes.json();
+        const msgList = Array.isArray(data) ? data : (data.messages || data.data || []);
+        setMessages(prev => JSON.stringify(prev) !== JSON.stringify(msgList) ? msgList : prev);
+      } else if (msgRes.status === 404) {
+        setMessages([]);
+      }
+    } catch (error) {
+      // Cichy błąd połączenia
+    }
+  }, [selectedUser]);
+
+  useEffect(() => {
+    if (selectedUser) {
+      setMessages([]); 
+      pollMessages();  
+      
+      const intervalId = setInterval(pollMessages, 3000);
+      return () => clearInterval(intervalId);
+    } else {
+      setMessages([]);
+    }
+  }, [selectedUser, pollMessages, refreshTrigger]);
+
+  // 3. WYSYŁANIE WIADOMOŚCI
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !selectedUser) return;
+
+    const targetUserId = selectedUser.userId || selectedUser.uuid || selectedUser.id;
+    const payload = { recipientId: targetUserId, content: newMessage };
+    
+    const messageBackup = newMessage;
+    setNewMessage(''); 
+
+    try {
+      const response = await fetch('http://ketyo.online/api/messaging/send', {
         method: 'POST',
-        json: {
-          recipientId,
-          content,
-        },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
 
-      setNewMessage('');
-      await fetchThreadMessages(activeThreadId);
-      await fetchThreads();
-    } catch (sendError) {
-      console.error('Błąd wysyłania wiadomości:', sendError);
-      alert('Nie udało się wysłać wiadomości.');
+      if (response.ok || response.status === 201) {
+        setRefreshTrigger(prev => prev + 1);
+      } else {
+        const errorText = await response.text();
+        alert(`Błąd wysyłania: ${errorText}`);
+        setNewMessage(messageBackup); 
+      }
+    } catch (error) {
+      alert('Błąd połączenia z siecią.');
+      setNewMessage(messageBackup);
     }
   };
 
-  return (
-    <div className="subpage-container" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div className="subpage-header">
-        <div>
-          <h1 style={{ fontWeight: 'bold' }}>Wiadomości</h1>
-        </div>
-      </div>
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
-      <div className="chat-container">
-        <div className="chat-sidebar">
-          <div className="search-wrapper" style={{ marginBottom: '20px', width: '100%' }}>
-            <span className="search-icon">🔍</span>
-            <input
-              type="text"
-              placeholder="Szukaj..."
-              className="search-input"
-              style={{ width: '100%' }}
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
+  const getInitials = (firstName, lastName) => {
+    return `${firstName ? firstName[0] : ''}${lastName ? lastName[0] : ''}`.toUpperCase() || 'U';
+  };
+
+  const isMessageFromMe = (msg) => {
+    const myId = currentUser?.userId || currentUser?.uuid || currentUser?.id;
+    if (!myId) return false;
+    
+    if (msg.senderId === myId || msg.authorId === myId) return true;
+    if (msg.sender && (msg.sender.userId === myId || msg.sender.id === myId || msg.sender.uuid === myId)) return true;
+    
+    return false;
+  };
+
+  return (
+    // ZMIANA: Zewnętrzny wrapper zajmuje równe 100% wysokości strony. 
+    // Dodajemy boxSizing: border-box i wewnętrzny padding, dzięki czemu nigdy nie przekroczy ekranu.
+    <div style={{ height: '100%', padding: '30px', boxSizing: 'border-box' }}>
+      
+      {/* GŁÓWNA RAMA CHATU */}
+      <div style={{ 
+        display: 'flex', 
+        height: '100%', 
+        backgroundColor: '#ffffff', 
+        borderRadius: '15px', 
+        overflow: 'hidden', 
+        boxShadow: '0 4px 15px rgba(0,0,0,0.05)'
+      }}>
+        
+        {/* =============== LEWY PANEL: STAŁA LISTA MIESZKAŃCÓW =============== */}
+        <div style={{ width: '320px', backgroundColor: '#ffffff', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '25px 20px', borderBottom: '1px solid #edf2f7', flexShrink: 0 }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 'bold', color: '#1a202c', margin: 0 }}>Mieszkańcy</h2>
           </div>
 
-          <div className="contacts-list">
-            {isLoadingThreads && threads.length === 0 ? (
-              <p style={{ textAlign: 'center', color: '#718096' }}>Ładowanie rozmów...</p>
-            ) : filteredThreads.length > 0 ? (
-              filteredThreads.map((thread, index) => {
-                const threadId = getThreadId(thread);
-                const isSelected = activeThreadId && doesThreadMatchId(thread, activeThreadId);
-                const threadName = threadPartnerNames[threadId] || getThreadName(thread);
-                const unreadCount = getThreadUnreadCount(thread);
+          <div style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
+            {users.map(u => {
+              const uId = u.userId || u.uuid || u.id;
+              const isSelected = selectedUser && (selectedUser.userId || selectedUser.uuid || selectedUser.id) === uId;
+              
+              return (
+                <div 
+                  key={uId}
+                  onClick={() => setSelectedUser(u)}
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    padding: '12px 15px', 
+                    marginBottom: '10px', 
+                    borderRadius: '10px', 
+                    cursor: 'pointer',
+                    border: isSelected ? '1px solid #3182ce' : '1px solid #e2e8f0',
+                    backgroundColor: isSelected ? '#ebf8ff' : '#ffffff',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <div style={{ 
+                    width: '42px', height: '42px', borderRadius: '50%', backgroundColor: isSelected ? '#3182ce' : '#e2e8f0', 
+                    color: isSelected ? 'white' : '#2b6cb0', display: 'flex', justifyContent: 'center', alignItems: 'center', 
+                    fontWeight: 'bold', fontSize: '15px', flexShrink: 0, marginRight: '15px'
+                  }}>
+                    {getInitials(u.firstName, u.lastName)}
+                  </div>
 
-                return (
-                  <div
-                    key={threadId || `thread-${index}`}
-                    className={`contact-item ${isSelected ? 'active-contact' : ''}`}
-                    onClick={() => threadId && setActiveThreadId(threadId)}
-                  >
-                    <div style={avatarStyle}>{getInitialsFromName(threadName)}</div>
-                    <div className="contact-info">
-                      <div className="contact-header">
-                        <h4>{threadName}</h4>
-                        <span className="contact-time">{formatMessageTime(thread.lastMessageDate || thread.updatedAt || thread.createdAt)}</span>
-                      </div>
-                      <div className="contact-footer">
-                        {getThreadLastMessage(thread) ? (
-                          <p className="contact-last-msg">{getThreadLastMessage(thread)}</p>
-                        ) : null}
-                        {unreadCount > 0 && (
-                          <span className="unread-badge">{unreadCount}</span>
-                        )}
-                      </div>
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#2d3748', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                      {u.firstName} {u.lastName}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#718096', marginTop: '3px' }}>
+                      Mieszkanie {u.homeNumber || '---'}
                     </div>
                   </div>
-                );
-              })
-            ) : (
-              <p style={{ textAlign: 'center', color: '#718096' }}>
-                {error || 'Brak rozmów do wyświetlenia.'}
-              </p>
-            )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        <div className="chat-window">
-          {activeThread ? (
+        {/* =============== PRAWY PANEL: OKNO CZATU =============== */}
+        <div style={{ flex: 1, backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column' }}>
+          
+          {!selectedUser ? (
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#a0aec0', fontSize: '16px' }}>
+              Wybierz mieszkańca z listy, aby rozpocząć rozmowę
+            </div>
+          ) : (
             <>
-              <div className="chat-window-header">
-                <div style={{ ...avatarStyle, width: '35px', height: '35px' }}>
-                  {getInitialsFromName(activeConversationName || getThreadName(activeThread))}
-                </div>
-                <h4>{activeConversationName || getThreadName(activeThread) || 'Rozmowa'}</h4>
+              {/* NAGŁÓWEK CZATU */}
+              <div style={{ padding: '20px 30px', backgroundColor: '#ffffff', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                 <div style={{ 
+                    width: '42px', height: '42px', borderRadius: '50%', backgroundColor: '#e2e8f0', 
+                    color: '#2b6cb0', display: 'flex', justifyContent: 'center', alignItems: 'center', 
+                    fontWeight: 'bold', fontSize: '15px', marginRight: '15px'
+                  }}>
+                    {getInitials(selectedUser.firstName, selectedUser.lastName)}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#2d3748' }}>{selectedUser.firstName} {selectedUser.lastName}</div>
+                    <div style={{ fontSize: '12px', color: '#718096' }}>Wątek prywatny</div>
+                  </div>
               </div>
 
-              <div className="chat-messages-area">
-                {isLoadingMessages && messages.length === 0 ? (
-                  <p style={{ textAlign: 'center', color: '#718096' }}>Ładowanie wiadomości...</p>
-                ) : messages.length > 0 ? (
-                  messages.map((message, index) => (
-                    <div
-                      key={message.uuid || message.id || index}
-                      className={`message-wrapper ${isOwnMessage(message, currentUserId) ? 'mine' : 'theirs'}`}
-                    >
-                      <div className="message-sender">
-                        {getMessageSenderName(message, currentUserId, currentUserName, activeConversationName)}
-                      </div>
-                      <div className="message-bubble">
-                        {getMessageContent(message)}
-                      </div>
-                      <span className="message-time">{formatMessageTime(getMessageDate(message))}</span>
-                    </div>
-                  ))
+              {/* LISTA WIADOMOŚCI (Jedyne miejsce, gdzie pojawia się scroll!) */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '30px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {messages.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: '#a0aec0', fontSize: '13px', marginTop: '20px' }}>Brak wcześniejszych wiadomości. Napisz jako pierwszy!</div>
                 ) : (
-                  <div style={{ height: '100%' }} />
+                  messages.map((msg, idx) => {
+                    const isMine = isMessageFromMe(msg);
+
+                    return (
+                      <div key={msg.messageId || msg.id || idx} style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
+                        <div style={{ 
+                          maxWidth: '70%', 
+                          padding: '12px 18px', 
+                          borderRadius: '20px', 
+                          fontSize: '14px',
+                          lineHeight: '1.4',
+                          backgroundColor: isMine ? '#3182ce' : '#edf2f7',
+                          color: isMine ? '#ffffff' : '#2d3748',
+                          borderBottomRightRadius: isMine ? '4px' : '20px',
+                          borderBottomLeftRadius: !isMine ? '4px' : '20px',
+                          wordBreak: 'break-word'
+                        }}>
+                          {msg.content || msg.text}
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#a0aec0', marginTop: '5px', margin: isMine ? '0 10px 0 0' : '0 0 0 10px' }}>
+                          {msg.sentAt || msg.createdDate ? new Date(msg.sentAt || msg.createdDate).toLocaleTimeString('pl-PL', { hour: '2-digit', minute:'2-digit' }) : ''}
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
                 <div ref={messagesEndRef} />
               </div>
 
-              <form className="chat-input-area" onSubmit={handleSendMessage}>
-                <input
-                  type="text"
-                  placeholder="Napisz wiadomość..."
-                  className="chat-input"
+              {/* POLE WPISYWANIA WIADOMOŚCI */}
+              <form onSubmit={handleSendMessage} style={{ padding: '20px', backgroundColor: '#ffffff', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '15px', flexShrink: 0 }}>
+                <input 
+                  type="text" 
+                  placeholder="Wpisz wiadomość..." 
                   value={newMessage}
-                  onChange={(event) => setNewMessage(event.target.value)}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  style={{ 
+                    flex: 1, 
+                    padding: '14px 20px', 
+                    borderRadius: '999px', 
+                    border: '1px solid #e2e8f0', 
+                    backgroundColor: '#f8fafc',
+                    outline: 'none',
+                    fontSize: '14px'
+                  }}
                 />
-                <button type="submit" style={{ display: 'none' }}></button>
+                <button 
+                  type="submit" 
+                  style={{ 
+                    backgroundColor: '#3182ce', 
+                    color: 'white', 
+                    border: 'none', 
+                    borderRadius: '999px', 
+                    padding: '0 25px', 
+                    fontWeight: 'bold', 
+                    cursor: newMessage.trim() ? 'pointer' : 'default',
+                    opacity: newMessage.trim() ? 1 : 0.5,
+                    transition: 'opacity 0.2s'
+                  }}
+                  disabled={!newMessage.trim()}
+                >
+                  Wyślij
+                </button>
               </form>
             </>
-          ) : (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#a0aec0' }}>
-              Wybierz rozmowę, aby rozpocząć
-            </div>
           )}
         </div>
+
       </div>
     </div>
   );

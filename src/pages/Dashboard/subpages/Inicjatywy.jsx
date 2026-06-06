@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { apiJson, toArray } from '../../../api/client';
+import { isAdminUser } from '../../../utils/user';
 
 export default function Inicjatywy() {
   const [activeFilter, setActiveFilter] = useState('Wszystkie');
@@ -7,6 +8,7 @@ export default function Inicjatywy() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [voteModalTarget, setVoteModalTarget] = useState(null); 
   const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
@@ -18,20 +20,48 @@ export default function Inicjatywy() {
 
   // Ładujemy inicjatywy i użytkowników
   useEffect(() => {
-    fetchUsers();
-    fetchInitiatives();
-  }, []);
+    let isMounted = true;
 
-  //POBIERANIE LICZBY UŻYTKOWNIKÓW
-  const fetchUsers = async () => {
-    try {
-      const data = await apiJson('/api/user');
-      const users = toArray(data, ['users']);
-      setTotalUsers(users.length > 0 ? users.length : 1);
-    } catch (error) {
-      console.error('Błąd pobierania listy użytkowników:', error);
-    }
-  };
+    const loadCurrentUser = async () => {
+      try {
+        const data = await apiJson('/api/user/me');
+        if (isMounted) setCurrentUser(data?.user || data);
+      } catch (error) {
+        console.error('Błąd pobierania danych aktualnego użytkownika:', error);
+        if (isMounted) setCurrentUser(null);
+      }
+    };
+
+    const loadUsers = async () => {
+      try {
+        const data = await apiJson('/api/user');
+        const users = toArray(data, ['users']);
+        if (isMounted) setTotalUsers(users.length > 0 ? users.length : 1);
+      } catch (error) {
+        console.error('Błąd pobierania listy użytkowników:', error);
+      }
+    };
+
+    const loadInitiatives = async () => {
+      try {
+        const data = await apiJson('/api/initiatives');
+        if (isMounted) setInicjatywyData(toArray(data, ['initiatives']));
+      } catch (error) {
+        console.error('Błąd połączenia z serwerem:', error);
+        if (isMounted) setInicjatywyData([]);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    loadCurrentUser();
+    loadUsers();
+    loadInitiatives();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   //POBIERANIE INICJATYW
   const fetchInitiatives = async () => {
@@ -97,6 +127,59 @@ export default function Inicjatywy() {
     }
   };
 
+  const handleDeleteInitiative = async (initiativeId) => {
+    if (!initiativeId) {
+      alert('Nie można usunąć inicjatywy bez identyfikatora.');
+      return;
+    }
+
+    if (!isAdminUser(currentUser)) {
+      alert('Brak uprawnień do usunięcia inicjatywy.');
+      return;
+    }
+
+    const confirmed = window.confirm('Czy na pewno chcesz usunąć tę inicjatywę?');
+    if (!confirmed) return;
+
+    try {
+      await apiJson(`/api/initiatives/delete/${initiativeId}`, {
+        method: 'DELETE',
+      });
+      await fetchInitiatives();
+    } catch (error) {
+      console.error('Błąd usuwania inicjatywy:', error);
+      alert('Nie udało się usunąć inicjatywy.');
+    }
+  };
+
+  const getInitiativeId = (initiative) => (
+    initiative?.initiativeId || initiative?.uuid || initiative?.id || initiative?._id
+  );
+
+  const getVoteCount = (initiative, keys) => {
+    for (const key of keys) {
+      const value = initiative?.[key];
+      if (value !== undefined && value !== null && value !== '') {
+        const numberValue = Number(value);
+        return Number.isFinite(numberValue) ? numberValue : 0;
+      }
+    }
+
+    return 0;
+  };
+
+  const getDeadlineDate = (deadline) => {
+    if (!deadline) return null;
+
+    const date = new Date(deadline);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+
+  const isInitiativeExpired = (initiative) => {
+    const deadlineDate = getDeadlineDate(initiative?.deadline);
+    return deadlineDate ? deadlineDate < new Date() : false;
+  };
+
   const filtry = ['Wszystkie', 'Aktywne', 'Wygasłe'];
 
   const safeDataToFilter = Array.isArray(inicjatywyData) ? inicjatywyData : [];
@@ -104,15 +187,15 @@ export default function Inicjatywy() {
   const filteredData = safeDataToFilter.filter(item => {
     if (activeFilter === 'Wszystkie') return true;
     
-    const now = new Date();
-    const deadlineDate = new Date(item.deadline);
-    const isExpired = deadlineDate < now;
+    const isExpired = isInitiativeExpired(item);
 
     if (activeFilter === 'Aktywne') return !isExpired;
     if (activeFilter === 'Wygasłe') return isExpired;
     
     return true;
   });
+
+  const isAdmin = isAdminUser(currentUser);
 
   return (
     <div className="subpage-container">
@@ -150,14 +233,20 @@ export default function Inicjatywy() {
         <div className="initiatives-list">
           {filteredData.map((item, index) => {
     
-            const currentId = item.initiativeId || item.uuid || item.id;
+            const currentId = getInitiativeId(item);
             
             // Obliczanie frekwencji: (głosy za + głosy przeciw) / wszyscy użytkownicy
-            const totalVotes = (item.upvotes || 0) + (item.downvotes || 0);
-            const displayPercent = Math.round((totalVotes / totalUsers) * 100);
+            const upvotes = getVoteCount(item, ['upvotes', 'upVotes', 'votesFor', 'forVotes', 'yesVotes']);
+            const downvotes = getVoteCount(item, ['downvotes', 'downVotes', 'votesAgainst', 'againstVotes', 'noVotes']);
+            const totalVotes = upvotes + downvotes;
+            const displayPercent = totalUsers > 0
+              ? Math.min(100, Math.round((totalVotes / totalUsers) * 100))
+              : 0;
+            const deadlineDate = getDeadlineDate(item.deadline);
+            const isExpired = isInitiativeExpired(item);
 
-            const formattedDeadline = item.deadline 
-              ? new Date(item.deadline).toLocaleDateString('pl-PL') 
+            const formattedDeadline = deadlineDate
+              ? deadlineDate.toLocaleDateString('pl-PL') 
               : 'Brak daty';
 
             return (
@@ -175,6 +264,16 @@ export default function Inicjatywy() {
                         Oddanych głosów
                       </div>
                     </div>
+                    {isExpired && (
+                      <div className="vote-results">
+                        <span className="vote-result vote-result-yes">
+                          Za: <strong>{upvotes}</strong>
+                        </span>
+                        <span className="vote-result vote-result-no">
+                          Przeciw: <strong>{downvotes}</strong>
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="initiative-right">
@@ -183,7 +282,11 @@ export default function Inicjatywy() {
                       {formattedDeadline}
                     </div>
                     <div className="action-area">
-                      {item.hasVoted ? (
+                      {isExpired ? (
+                        <button type="button" className="vote-btn vote-btn-ended" disabled>
+                          Zakończone
+                        </button>
+                      ) : item.hasVoted ? (
                         <div className="voted-icon" title="Już oddałeś głos!">✅</div>
                       ) : (
                         <button 
@@ -197,6 +300,15 @@ export default function Inicjatywy() {
                           }}
                         >
                           Zagłosuj
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          className="initiative-delete-btn"
+                          onClick={() => handleDeleteInitiative(currentId)}
+                        >
+                          Usuń
                         </button>
                       )}
                     </div>

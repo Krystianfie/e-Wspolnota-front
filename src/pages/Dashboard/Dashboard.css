@@ -784,6 +784,30 @@
   color: #1a202c;
 }
 
+.vote-results {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.vote-result {
+  border-radius: 10px;
+  padding: 7px 10px;
+}
+
+.vote-result-yes {
+  background-color: #d1fae5;
+  color: #047857;
+}
+
+.vote-result-no {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
 /* Prawa strona inicjatywy */
 .initiative-right {
   display: flex;
@@ -801,6 +825,10 @@
 }
 
 .action-area {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
   margin-top: 15px;
 }
 
@@ -820,6 +848,31 @@
 
 .vote-btn:hover {
   transform: translateY(-2px);
+}
+
+.vote-btn-ended,
+.vote-btn-ended:hover {
+  background-color: #e2e8f0;
+  color: #4a5568;
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
+
+.initiative-delete-btn {
+  background-color: #ef4444;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 3px 6px rgba(239, 68, 68, 0.25);
+}
+
+.initiative-delete-btn:hover {
+  background-color: #dc2626;
 }
 
 .voted-icon {
