@@ -184,18 +184,16 @@ export default function Ogloszenia() {
     }
   };
 
-  // 2. TWORZENIE OGŁOSZENIA Z ENUMAMI
+  // TWORZENIE OGŁOSZENIA Z ENUMAMI
   const handleSave = async () => {
     if (!newTitle || !newContent) {
       alert('Uzupełnij tytuł i treść!');
       return;
     }
 
-    // Mapowanie pod sztywne wymogi Michała
     const payload = {
       title: newTitle,
       description: newContent,
-      // Jeśli jest ważne, wysyłamy WARNING, w przeciwnym razie to co kliknął user (INFO / MAINTENANCE)
       type: isImportant ? 'WARNING' : newCategory, 
       actionDate: new Date().toISOString().split('T')[0],
       isImportant: isImportant 
@@ -223,7 +221,6 @@ export default function Ogloszenia() {
 
   const safeDataToFilter = Array.isArray(ogloszeniaData) ? ogloszeniaData : [];
   
-  // Tłumaczenie backendowych ENUMÓW na potrzeby filtrowania
   const filteredData = safeDataToFilter.filter(item => {
     if (activeFilter === 'Wszystkie') return true;
     if (activeFilter === 'WAŻNE') return item.type === 'WARNING' || item.isImportant;
@@ -232,7 +229,6 @@ export default function Ogloszenia() {
     return true;
   });
 
-  // Helper do wyświetlania polskiego tekstu na etykiecie
   const getDisplayLabel = (type) => {
     switch(type) {
       case 'WARNING': return 'WAŻNE';

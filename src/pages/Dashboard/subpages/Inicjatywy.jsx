@@ -14,16 +14,15 @@ export default function Inicjatywy() {
 
   const [inicjatywyData, setInicjatywyData] = useState([]);
   
-  // Nowy stan do przechowywania całkowitej liczby użytkowników
-  const [totalUsers, setTotalUsers] = useState(1); // Domyślnie 1, żeby uniknąć dzielenia przez zero
+  const [totalUsers, setTotalUsers] = useState(1); 
 
-  // Ładujemy inicjatywy i użytkowników przy montowaniu komponentu
+  // Ładujemy inicjatywy i użytkowników
   useEffect(() => {
     fetchUsers();
     fetchInitiatives();
   }, []);
 
-  // 1. POBIERANIE LICZBY UŻYTKOWNIKÓW
+  //POBIERANIE LICZBY UŻYTKOWNIKÓW
   const fetchUsers = async () => {
     try {
       const data = await apiJson('/api/user');
@@ -34,7 +33,7 @@ export default function Inicjatywy() {
     }
   };
 
-  // 2. POBIERANIE INICJATYW
+  //POBIERANIE INICJATYW
   const fetchInitiatives = async () => {
     setIsLoading(true);
     try {
@@ -48,7 +47,7 @@ export default function Inicjatywy() {
     }
   };
 
-  // 3. TWORZENIE INICJATYWY
+  //TWORZENIE INICJATYWY
   const handleSaveInitiative = async () => {
     if (!newTitle || !newContent || !newDate) return alert('Uzupełnij wszystkie pola!');
 
@@ -75,11 +74,10 @@ export default function Inicjatywy() {
     }
   };
 
-  // 4. ODDANIE GŁOSU
+  //ODDANIE GŁOSU
   const handleVote = async (voteValue) => {
     if (!voteModalTarget) return;
 
-    // Zgodnie z docs.json przesyłamy initiativeId oraz vote
     const payload = {
       initiativeId: voteModalTarget, 
       vote: voteValue 
@@ -92,7 +90,7 @@ export default function Inicjatywy() {
       });
 
       await fetchInitiatives(); // Przeładuj świeże dane z nowym procentem głosów
-      setVoteModalTarget(null); // Zamknij modal
+      setVoteModalTarget(null); 
     } catch (error) {
       console.error('Błąd podczas głosowania:', error);
       alert('Brak połączenia z API.');
@@ -151,7 +149,7 @@ export default function Inicjatywy() {
       ) : (
         <div className="initiatives-list">
           {filteredData.map((item, index) => {
-            // Zgodnie z nowym JSON, łapiemy initiativeId
+    
             const currentId = item.initiativeId || item.uuid || item.id;
             
             // Obliczanie frekwencji: (głosy za + głosy przeciw) / wszyscy użytkownicy
@@ -185,7 +183,6 @@ export default function Inicjatywy() {
                       {formattedDeadline}
                     </div>
                     <div className="action-area">
-                      {/* Backend zwraca hasVoted - blokujemy podwójne głosowanie */}
                       {item.hasVoted ? (
                         <div className="voted-icon" title="Już oddałeś głos!">✅</div>
                       ) : (
@@ -215,7 +212,7 @@ export default function Inicjatywy() {
         </div>
       )}
 
-      {/* MODAL DODAWANIA INICJATYWY */}
+      {/*DODANIE INICJATYWY */}
       {isAddModalOpen && (
         <div className="modal-overlay">
           <div className="modal-box">
@@ -250,7 +247,7 @@ export default function Inicjatywy() {
         </div>
       )}
 
-      {/* MODAL GŁOSOWANIA */}
+      {/*MODAL GŁOSOWANIA */}
       {voteModalTarget && (
         <div className="modal-overlay">
           <div className="modal-box" style={{ width: '300px', alignItems: 'center' }}>

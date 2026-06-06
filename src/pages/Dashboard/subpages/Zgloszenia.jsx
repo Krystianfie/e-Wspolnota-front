@@ -20,7 +20,7 @@ export default function Zgloszenia() {
     fetchReports();
   }, []);
 
-  // 1. POBIERANIE ZGŁOSZEŃ
+  // POBIERANIE ZGŁOSZEŃ
   const fetchReports = async () => {
     setIsLoading(true);
     try {
@@ -34,7 +34,7 @@ export default function Zgloszenia() {
     }
   };
 
-  // 2. TWORZENIE ZGŁOSZENIA
+  // TWORZENIE ZGŁOSZENIA
   const handleSaveTicket = async () => {
     if (!newTitle || !newContent) return alert('Podaj tytuł i treść zgłoszenia!');
     
@@ -59,7 +59,7 @@ export default function Zgloszenia() {
     }
   };
 
-  // 3. USUWANIE ZGŁOSZENIA
+  // USUWANIE ZGŁOSZENIA
   const handleDeleteTicket = async (reportId) => {
     if (!reportId) {
       alert('Nie można usunąć zgłoszenia bez identyfikatora z backendu.');
@@ -87,7 +87,7 @@ export default function Zgloszenia() {
     }
   };
 
-  // === PRZENIESIONE FUNKCJE POMOCNICZE (Muszą być przed filtrowaniem) ===
+  // PRZENIESIONE FUNKCJE POMOCNICZE 
   const getBadgeClass = (status) => {
     if (status === 'W trakcie' || status === 'IN_PROGRESS') return 'badge-orange';
     if (status === 'Nowe' || status === 'NEW' || status === 'OPEN') return 'badge-blue';
@@ -102,13 +102,11 @@ export default function Zgloszenia() {
     return status || 'Nieznany';
   };
 
-  // === FILTROWANIE DANYCH ===
+  // FILTROWANIE DANYCH 
   const safeDataToFilter = Array.isArray(ticketsData) ? ticketsData : [];
   const filteredTickets = safeDataToFilter.filter(ticket => {
     const matchesSearch = ticket.title?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           String(ticket.reportNumber || ticket.reportId).includes(searchTerm);
-    
-    // Teraz getStatusLabel jest już znane programowi i zadziała bez błędu
     const ticketPolishStatus = getStatusLabel(ticket.status);
     const matchesStatus = filterStatus ? ticketPolishStatus === filterStatus : true;
     

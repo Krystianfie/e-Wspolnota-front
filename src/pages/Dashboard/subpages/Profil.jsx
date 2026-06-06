@@ -23,7 +23,7 @@ export default function Profil({ user }) {
     setEditedEmail(userData?.email || user?.email || '');
   }, [userData?.email, user?.email]);
 
-  // 1. POBIERANIE DANYCH PROFILU (/api/user/{uuid})
+  // POBIERANIE DANYCH PROFILU
   const fetchUserProfile = async () => {
     setIsLoading(true);
     const userId = getUserId(user);
@@ -111,12 +111,10 @@ export default function Profil({ user }) {
     return <p style={{ textAlign: 'center', marginTop: '40px', color: '#ef4444' }}>Nie znaleziono profilu użytkownika.</p>;
   }
 
-  // Ustalanie etykiety roli oraz jej koloru
   const isUserAdmin = isAdminUser(userData);
   const roleLabel = getRoleLabel(userData);
   const roleColor = isUserAdmin ? '#ef4444' : '#10b981'; // Czerwony dla admina, zielony dla mieszkańca
 
-  // --- STYLE INLINE ODZWIERCIEDLAJĄCE MAKIETĘ ---
   const cardStyle = {
     backgroundColor: '#f3f4f6', 
     borderRadius: '15px',
@@ -264,7 +262,7 @@ export default function Profil({ user }) {
         </div>
       </div>
 
-      {/* MODAL: ZMIANA HASŁA */}
+      {/* ZMIANA HASŁA */}
       {isPasswordModalOpen && (
         <div className="modal-overlay" onClick={() => setIsPasswordModalOpen(false)}>
           <div className="modal-box" style={{ width: '400px' }} onClick={(e) => e.stopPropagation()}>

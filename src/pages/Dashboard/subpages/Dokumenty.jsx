@@ -52,7 +52,6 @@ export default function Dokumenty({ user }) {
     formData.append('file', selectedFile);          
     formData.append('title', newTitle);              
     formData.append('description', newDescription);  
-    // Wysyłamy surowy ENUM na backend (np. "FINANCIAL")
     formData.append('type', newType);                
 
     try {
@@ -67,7 +66,7 @@ export default function Dokumenty({ user }) {
         
         setNewTitle('');
         setNewDescription('');
-        setNewType('REGULATION'); // Powrót do domyślnego enuma
+        setNewType('REGULATION');
         setSelectedFile(null);
         setIsAddModalOpen(false);
       } else {
@@ -101,7 +100,6 @@ export default function Dokumenty({ user }) {
     }
   };
 
-  // Filtrowanie z uwzględnieniem Enumów
   const filtry = ['Wszystkie', 'REGULATION', 'RESOLUTION', 'FINANCIAL', 'TECHNICAL'];
 
   const safeDataToFilter = Array.isArray(documentsData) ? documentsData : [];
@@ -109,7 +107,6 @@ export default function Dokumenty({ user }) {
     const matchesSearch = doc.title?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           doc.description?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Filtrujemy po czystych Enumach
     const matchesTab = activeFilter === 'Wszystkie' || doc.type === activeFilter;
     
     return matchesSearch && matchesTab;
@@ -136,7 +133,6 @@ export default function Dokumenty({ user }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '15px' }}>
         <div className="tabs-row" style={{ margin: 0, border: 'none' }}>
           {filtry.map(f => {
-            // Zamieniamy ENUM na ładną nazwę dla użytkownika, jeśli to nie jest przycisk "Wszystkie"
             const displayLabel = f === 'Wszystkie' ? 'Wszystkie' : typeLabels[f];
             
             return (
@@ -191,7 +187,6 @@ export default function Dokumenty({ user }) {
                       {doc.description || '---'}
                     </div>
                     <div style={{ width: '15%' }}>
-                      {/* Wyświetlanie przetłumaczonego Enuma */}
                       <span className="badge-pill badge-grey">{typeLabels[doc.type] || doc.type || 'Inne'}</span>
                     </div>
                     <div style={{ width: '15%', color: '#a0aec0', fontSize: '13px' }}>
@@ -259,7 +254,6 @@ export default function Dokumenty({ user }) {
               onChange={(e) => setNewType(e.target.value)}
               style={{ width: '100%', height: '40px', background: 'white' }}
             >
-              {/* Opcje rozwijane z przypiętym surowym Enumem pod maską */}
               <option value="REGULATION">Regulamin</option>
               <option value="RESOLUTION">Uchwała</option>
               <option value="FINANCIAL">Finansowe</option>

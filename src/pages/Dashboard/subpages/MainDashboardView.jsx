@@ -348,7 +348,7 @@ function MainDashboardView({ user }) {
         />
       </div>
 
-      {/* OGŁOSZENIA + ZGŁOSZENIA */}
+      {/* OGŁOSZENIA I ZGŁOSZENIA */}
       <div
         style={{
           display: 'grid',
