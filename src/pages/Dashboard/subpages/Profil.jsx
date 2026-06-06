@@ -133,18 +133,33 @@ export default function Profil({ user }) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(nextEmail)) {
       return alert('Wprowadź poprawny adres e-mail.');
     }
-    if (!emailPassword) return alert('Wprowadź aktualne hasło, aby zmienić e-mail.');
 
     setIsSavingEmail(true);
+    const userUuid = userData?.userId || userData?.uuid || userData?.id || user?.userId || user?.uuid || user?.id || getUserId(userData) || getUserId(user);
 
     try {
-      const data = await apiJson('/api/user/updateEmail', {
-        method: 'PATCH',
-        json: {
-          email: nextEmail,
-          password: emailPassword,
-        },
-      });
+      let data;
+      try {
+      
+        data = await apiJson(`/api/user/${userUuid}`, {
+          method: 'PUT',
+          json: { ...userData, email: nextEmail, password: emailPassword || undefined },
+        });
+      } catch (err1) {
+        try {
+         
+          data = await apiJson('/api/user/updateEmail', {
+            method: 'PATCH',
+            json: { email: nextEmail, password: emailPassword || undefined, userId: userUuid, uuid: userUuid },
+          });
+        } catch (err2) {
+  
+          data = await apiJson('/api/user/updateEmail', {
+            method: 'POST',
+            json: { email: nextEmail, password: emailPassword || undefined, userId: userUuid, uuid: userUuid },
+          });
+        }
+      }
 
       const updatedUser = getUserFromResponse(data) || { ...userData, email: nextEmail };
       setUserData(updatedUser);
@@ -174,20 +189,34 @@ export default function Profil({ user }) {
   };
 
   const handleSaveNote = async () => {
-    // Solidne poszukiwanie UUID użytkownika - kluczowe dla poprawnego strzału API
     const userUuid = userData?.userId || userData?.uuid || userData?.id || user?.userId || user?.uuid || user?.id || getUserId(userData) || getUserId(user);
     if (!userUuid) return alert('Nie można zapisać notatki bez identyfikatora użytkownika.');
 
     setIsSavingNote(true);
 
     try {
-      const data = await apiJson('/api/user/updateNote', {
-        method: 'PATCH',
-        json: {
-          note: editedNote,
-          uuid: userUuid,
-        },
-      });
+      let data;
+      try {
+      
+        data = await apiJson(`/api/user/${userUuid}`, {
+          method: 'PUT',
+          json: { ...userData, note: editedNote },
+        });
+      } catch (err1) {
+        try {
+          
+          data = await apiJson('/api/user/updateNote', {
+            method: 'PATCH',
+            json: { note: editedNote, uuid: userUuid, userId: userUuid },
+          });
+        } catch (err2) {
+        
+          data = await apiJson('/api/user/updateNote', {
+            method: 'POST',
+            json: { note: editedNote, uuid: userUuid, userId: userUuid },
+          });
+        }
+      }
 
       const updatedUser = getUserFromResponse(data);
       setUserData((previousUser) => ({
