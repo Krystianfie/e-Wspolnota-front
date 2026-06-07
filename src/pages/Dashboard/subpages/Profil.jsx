@@ -20,23 +20,37 @@ const getApiErrorMessage = async (error, fallbackMessage) => {
       ? await response.json()
       : await response.text();
 
+    let extractedMessage = fallbackMessage;
+
     if (typeof payload === 'string') {
-      return payload || fallbackMessage;
+      extractedMessage = payload || fallbackMessage;
+    } else {
+      const fieldError = Array.isArray(payload?.errors)
+        ? payload.errors.find(Boolean)
+        : null;
+
+      extractedMessage = (
+        payload?.msg ||
+        payload?.message ||
+        payload?.error ||
+        fieldError?.msg ||
+        fieldError?.message ||
+        fieldError ||
+        fallbackMessage
+      );
     }
 
-    const fieldError = Array.isArray(payload?.errors)
-      ? payload.errors.find(Boolean)
-      : null;
+    if (typeof extractedMessage === 'string') {
+      const lowerMsg = extractedMessage.toLowerCase();
+      if (lowerMsg.includes('bad credentials')) return 'Błędny login lub hasło.';
+      if (lowerMsg.includes('invalid password') || lowerMsg.includes('incorrect password') || lowerMsg.includes('wrong password')) return 'Nieprawidłowe aktualne hasło.';
+      if (lowerMsg.includes('weak password') || lowerMsg.includes('password must')) return 'Nowe hasło nie spełnia wymagań bezpieczeństwa.';
+      if (lowerMsg.includes('user not found')) return 'Nie znaleziono takiego użytkownika.';
 
-    return (
-          payload?.msg ||
-      payload?.message ||
-      payload?.error ||
-          fieldError?.msg ||
-      fieldError?.message ||
-      fieldError ||
-      fallbackMessage
-    );
+      return extractedMessage;
+    }
+
+    return fallbackMessage;
   } catch {
     return fallbackMessage;
   }
@@ -399,6 +413,9 @@ export default function Profil({ user }) {
                   value={oldPassword}
                   onChange={(e) => setOldPassword(e.target.value)}
                 />
+                <span style={{ color: '#64748b', fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                  min. 8 znaków, duża litera, mała litera, cyfra, symbol
+                </span>
               </div>
 
               <div>
