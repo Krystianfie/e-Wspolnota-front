@@ -17,7 +17,7 @@ export default function Wiadomosci() {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const meRes = await fetch('http://ketyo.online/api/user/me');
+        const meRes = await fetch('https://ketyo.online/api/user/me');
         let meData = null;
         if (meRes.ok) {
           const data = await meRes.json();
@@ -27,7 +27,7 @@ export default function Wiadomosci() {
           }
         }
 
-        const usersRes = await fetch('http://ketyo.online/api/user');
+        const usersRes = await fetch('https://ketyo.online/api/user');
         if (usersRes.ok) {
           const data = await usersRes.json();
           const userList = Array.isArray(data) ? data : (data.users || []);
@@ -55,7 +55,7 @@ export default function Wiadomosci() {
     let threadIdToFetch = targetUserId; 
 
     try {
-      const threadsRes = await fetch('http://ketyo.online/api/messaging/threads');
+      const threadsRes = await fetch('https://ketyo.online/api/messaging/threads');
       if (threadsRes.ok) {
         const threadsData = await threadsRes.json();
         const allThreads = Array.isArray(threadsData) ? threadsData : (threadsData.threads || []);
@@ -68,7 +68,7 @@ export default function Wiadomosci() {
         }
       }
 
-      const msgRes = await fetch(`http://ketyo.online/api/messaging/thread/${threadIdToFetch}`);
+      const msgRes = await fetch(`https://ketyo.online/api/messaging/thread/${threadIdToFetch}`);
       if (msgRes.ok) {
         const data = await msgRes.json();
         const msgList = Array.isArray(data) ? data : (data.messages || data.data || []);
@@ -105,7 +105,7 @@ export default function Wiadomosci() {
     setNewMessage(''); 
 
     try {
-      const response = await fetch('http://ketyo.online/api/messaging/send', {
+      const response = await fetch('https://ketyo.online/api/messaging/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
