@@ -147,12 +147,17 @@ export default function Wiadomosci() {
   return (
     // ZMIANA: Zewnętrzny wrapper zajmuje równe 100% wysokości strony. 
     // Dodajemy boxSizing: border-box i wewnętrzny padding, dzięki czemu nigdy nie przekroczy ekranu.
-    <div style={{ height: '100%', padding: '30px', boxSizing: 'border-box' }}>
+    <div className="subpage-container" style={{ height: '100%' }}>
       
+      <div className="subpage-header">
+        <h1 style={{ fontWeight: 'bold' }}>Wiadomości</h1>
+      </div>
+
       {/* GŁÓWNA RAMA CHATU */}
       <div style={{ 
         display: 'flex', 
-        height: '100%', 
+        flex: 1,
+        minHeight: 0,
         backgroundColor: '#ffffff', 
         borderRadius: '15px', 
         overflow: 'hidden', 

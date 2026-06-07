@@ -132,12 +132,10 @@ function Mieszkaniec({ user }) {
 
   return (
     <div className="subpage-container residents-page">
-      <div className="residents-header">
-        <div>
-          <h2>Lista mieszkańców</h2>
-        </div>
+      <div className="subpage-header">
+        <h1 style={{ fontWeight: 'bold' }}>Lista mieszkańców</h1>
         {isAdmin && (
-          <button type="button" className="add-btn" onClick={handleAddClick}>
+          <button type="button" className="add-btn-blue" onClick={handleAddClick}>
             {showAddForm ? 'Anuluj' : 'Dodaj mieszkańca'}
           </button>
         )}

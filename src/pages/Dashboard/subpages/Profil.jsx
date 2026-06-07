@@ -29,8 +29,10 @@ const getApiErrorMessage = async (error, fallbackMessage) => {
       : null;
 
     return (
+          payload?.msg ||
       payload?.message ||
       payload?.error ||
+          fieldError?.msg ||
       fieldError?.message ||
       fieldError ||
       fallbackMessage
@@ -49,11 +51,11 @@ export default function Profil({ user }) {
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [isEmailEditMode, setIsEmailEditMode] = useState(false);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [editedEmail, setEditedEmail] = useState(user?.email || '');
   const [emailPassword, setEmailPassword] = useState('');
   const [isSavingEmail, setIsSavingEmail] = useState(false);
-  const [isNoteEditMode, setIsNoteEditMode] = useState(false);
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [editedNote, setEditedNote] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
 
@@ -118,8 +120,12 @@ export default function Profil({ user }) {
       setNewPassword('');
       setIsPasswordModalOpen(false);
     } catch (error) {
+      const message = await getApiErrorMessage(
+        error,
+        'Błąd: Nie udało się zmienić hasła.'
+      );
       console.error('Błąd podczas zmiany hasła:', error);
-      alert('Błąd: Nie udało się zmienić hasła.');
+      alert(message);
     } finally {
       setIsChangingPassword(false);
     }
@@ -165,7 +171,7 @@ export default function Profil({ user }) {
       setUserData(updatedUser);
       setEditedEmail(nextEmail);
       setEmailPassword('');
-      setIsEmailEditMode(false);
+      setIsEmailModalOpen(false);
       alert('E-mail został zaktualizowany.');
     } catch (error) {
       const message = await getApiErrorMessage(
@@ -180,12 +186,6 @@ export default function Profil({ user }) {
     } finally {
       setIsSavingEmail(false);
     }
-  };
-
-  const handleCancelEmailEdit = () => {
-    setIsEmailEditMode(false);
-    setEditedEmail(userData?.email || user?.email || '');
-    setEmailPassword('');
   };
 
   const handleSaveNote = async () => {
@@ -224,7 +224,7 @@ export default function Profil({ user }) {
         ...(updatedUser || {}),
         note: getProfileNote(updatedUser) || editedNote,
       }));
-      setIsNoteEditMode(false);
+      setIsNoteModalOpen(false);
       alert('Notatka została zapisana.');
     } catch (error) {
       const message = await getApiErrorMessage(
@@ -239,11 +239,6 @@ export default function Profil({ user }) {
     } finally {
       setIsSavingNote(false);
     }
-  };
-
-  const handleCancelNoteEdit = () => {
-    setIsNoteEditMode(false);
-    setEditedNote(getProfileNote(userData));
   };
 
   if (isLoading) {
@@ -283,10 +278,10 @@ export default function Profil({ user }) {
   );
 
   return (
-    <div className="subpage-container" style={{ padding: '30px', maxWidth: '1000px' }}>
-      <h1 style={{ fontWeight: 'bold', fontSize: '24px', marginBottom: '30px', color: '#1a202c' }}>
-        Mój profil
-      </h1>
+    <div className="subpage-container" style={{ maxWidth: '1000px' }}>
+      <div className="subpage-header">
+        <h1 style={{ fontWeight: 'bold' }}>Mój profil</h1>
+      </div>
 
       <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
         
@@ -332,196 +327,58 @@ export default function Profil({ user }) {
             </div>
           </div>
 
-          <div style={{ ...inputCardStyle, flexDirection: isEmailEditMode ? 'column' : 'row', alignItems: isEmailEditMode ? 'stretch' : 'center', gap: isEmailEditMode ? '16px' : '0' }}>
-            <div style={{ width: '100%' }}>
+          <div style={inputCardStyle}>
+            <div>
               <span style={{ fontWeight: 'bold' }}>E-MAIL: </span>
-              {isEmailEditMode ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '8px' }}>
-                  <input
-                    type="email"
-                    value={editedEmail}
-                    onChange={(e) => setEditedEmail(e.target.value)}
-                    placeholder="Nowy adres e-mail"
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: '10px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '14px',
-                      color: '#1a202c',
-                    }}
-                  />
-                  <input
-                    type="password"
-                    value={emailPassword}
-                    onChange={(e) => setEmailPassword(e.target.value)}
-                    placeholder="Aktualne hasło"
-                    style={{
-                      width: '100%',
-                      padding: '10px 14px',
-                      borderRadius: '10px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '14px',
-                      color: '#1a202c',
-                    }}
-                  />
-                </div>
-              ) : (
-                <span>{userData.email}</span>
-              )}
+              <span>{userData.email}</span>
             </div>
-            {isEmailEditMode ? (
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', width: '100%' }}>
-                <button
-                  type="button"
-                  onClick={handleCancelEmailEdit}
-                  style={{
-                    padding: '10px 16px',
-                    borderRadius: '10px',
-                    border: '1px solid #cbd5e1',
-                    backgroundColor: 'white',
-                    color: '#4a5568',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Anuluj
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveEmail}
-                  disabled={isSavingEmail}
-                  style={{
-                    padding: '10px 16px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    backgroundColor: '#2b6cb0',
-                    color: 'white',
-                    cursor: isSavingEmail ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {isSavingEmail ? 'Zapisz...' : 'Zapisz'}
-                </button>
-              </div>
-            ) : (
-              <div onClick={() => setIsEmailEditMode(true)}>
-                {pencilIcon}
-              </div>
-            )}
+            <div onClick={() => {
+              setEditedEmail(userData.email || '');
+              setEmailPassword('');
+              setIsEmailModalOpen(true);
+            }}>
+              {pencilIcon}
+            </div>
           </div>
 
         </div>
       </div>
 
       {/* ==================================================== */}
-      {/* DOLNA SEKCJA: NOTATKI (POPRAWIONA INTERAKCJA)        */}
+      {/* DOLNA SEKCJA: NOTATKI                                */}
       {/* ==================================================== */}
       <div 
         style={{ 
           ...cardStyle, 
           marginTop: '30px', 
           padding: '25px', 
-          minHeight: '250px',
-          cursor: isNoteEditMode ? 'default' : 'pointer', // Pokazuje, że można w to kliknąć
-          transition: 'background-color 0.2s ease'
-        }}
-        // KLIKNIĘCIE W CAŁE POLE AKTYWUJE EDYCJĘ:
-        onClick={() => {
-          if (!isNoteEditMode) {
-            setEditedNote(getProfileNote(userData) || '');
-            setIsNoteEditMode(true);
-          }
-        }}
-        onMouseEnter={(e) => {
-          if (!isNoteEditMode) e.currentTarget.style.backgroundColor = '#edf2f7';
-        }}
-        onMouseLeave={(e) => {
-          if (!isNoteEditMode) e.currentTarget.style.backgroundColor = '#f3f4f6';
+          minHeight: '250px'
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px' }}>
           <div style={{ flex: 1 }}>
             <span style={{ fontWeight: 'bold', fontSize: '16px', color: '#1a202c' }}>Notatka</span>
-            {isNoteEditMode ? (
-              <textarea
-                value={editedNote}
-                onChange={(e) => setEditedNote(e.target.value)}
-                onClick={(e) => e.stopPropagation()} // BLOKADA: Zapobiega bugowaniu po kliknięciu w środek pola tekstowego
-                placeholder="Dodaj notatkę..."
-                autoFocus // Kursor automatycznie ląduje w polu
-                style={{
-                  width: '100%',
-                  minHeight: '160px',
-                  marginTop: '16px',
-                  padding: '14px',
-                  borderRadius: '12px',
-                  border: '1px solid #cbd5e1',
-                  resize: 'vertical',
-                  fontFamily: 'inherit',
-                  fontSize: '14px',
-                  color: '#1a202c',
-                  backgroundColor: '#ffffff',
-                  outline: 'none'
-                }}
-              />
-            ) : (
-              <p style={{
-                margin: '16px 0 0',
-                color: getProfileNote(userData) ? '#4a5568' : '#a0aec0',
-                fontSize: '14px',
-                lineHeight: '1.6',
-                whiteSpace: 'pre-wrap',
-              }}>
-                {getProfileNote(userData) || 'Brak notatki. Kliknij tutaj, aby ją dodać...'}
-              </p>
-            )}
+            <p style={{
+              margin: '16px 0 0',
+              color: getProfileNote(userData) ? '#4a5568' : '#a0aec0',
+              fontSize: '14px',
+              lineHeight: '1.6',
+              whiteSpace: 'pre-wrap',
+            }}>
+              {getProfileNote(userData) || 'Brak notatki.'}
+            </p>
           </div>
 
-          {!isNoteEditMode && (
-            <div style={{ color: '#a0aec0' }}>
-              {pencilIcon}
-            </div>
-          )}
+          <div 
+            style={{ color: '#a0aec0', cursor: 'pointer' }}
+            onClick={() => {
+              setEditedNote(getProfileNote(userData) || '');
+              setIsNoteModalOpen(true);
+            }}
+          >
+            {pencilIcon}
+          </div>
         </div>
-
-        {isNoteEditMode && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation(); // BLOKADA
-                handleCancelNoteEdit();
-              }}
-              style={{
-                padding: '10px 16px',
-                borderRadius: '10px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: 'white',
-                color: '#4a5568',
-                cursor: 'pointer',
-              }}
-            >
-              Anuluj
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation(); // BLOKADA
-                handleSaveNote();
-              }}
-              disabled={isSavingNote}
-              style={{
-                padding: '10px 16px',
-                borderRadius: '10px',
-                border: 'none',
-                backgroundColor: '#2b6cb0',
-                color: 'white',
-                cursor: isSavingNote ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {isSavingNote ? 'Zapisywanie...' : 'Zapisz'}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* ZMIANA HASŁA */}
@@ -574,6 +431,95 @@ export default function Profil({ user }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ZMIANA E-MAIL */}
+      {isEmailModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsEmailModalOpen(false)}>
+          <div className="modal-box" style={{ width: '400px' }} onClick={(e) => e.stopPropagation()}>
+            <h3 className="modal-label" style={{ fontSize: '18px', marginBottom: '20px', marginTop: '0' }}>Zmień e-mail</h3>
+            
+            <form onSubmit={handleSaveEmail} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', color: '#4a5568', marginBottom: '5px', fontWeight: 'bold' }}>
+                  Nowy adres e-mail *
+                </label>
+                <input 
+                  type="email" 
+                  className="modal-input" 
+                  style={{ width: '100%', margin: 0, boxSizing: 'border-box' }}
+                  value={editedEmail}
+                  onChange={(e) => setEditedEmail(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '13px', color: '#4a5568', marginBottom: '5px', fontWeight: 'bold' }}>
+                  Aktualne hasło *
+                </label>
+                <input 
+                  type="password" 
+                  className="modal-input" 
+                  style={{ width: '100%', margin: 0, boxSizing: 'border-box' }}
+                  value={emailPassword}
+                  onChange={(e) => setEmailPassword(e.target.value)}
+                />
+              </div>
+
+              <div className="modal-buttons" style={{ marginTop: '20px' }}>
+                <button 
+                  type="submit" 
+                  className="modal-btn-save" 
+                  disabled={isSavingEmail}
+                >
+                  {isSavingEmail ? 'Zapisywanie...' : 'Zapisz'}
+                </button>
+                <button 
+                  type="button" 
+                  className="modal-btn-cancel" 
+                  onClick={() => setIsEmailModalOpen(false)}
+                >
+                  Anuluj
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ZMIANA NOTATKI */}
+      {isNoteModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsNoteModalOpen(false)}>
+          <div className="modal-box" style={{ width: '500px' }} onClick={(e) => e.stopPropagation()}>
+            <h3 className="modal-label" style={{ fontSize: '18px', marginBottom: '20px', marginTop: '0' }}>Edytuj notatkę</h3>
+            
+            <textarea 
+              className="modal-textarea" 
+              style={{ width: '100%', minHeight: '200px', boxSizing: 'border-box' }}
+              value={editedNote}
+              onChange={(e) => setEditedNote(e.target.value)}
+              placeholder="Dodaj notatkę..."
+            />
+
+            <div className="modal-buttons" style={{ marginTop: '20px' }}>
+              <button 
+                type="button" 
+                className="modal-btn-save" 
+                onClick={handleSaveNote}
+                disabled={isSavingNote}
+              >
+                {isSavingNote ? 'Zapisywanie...' : 'Zapisz'}
+              </button>
+              <button 
+                type="button" 
+                className="modal-btn-cancel" 
+                onClick={() => setIsNoteModalOpen(false)}
+              >
+                Anuluj
+              </button>
+            </div>
           </div>
         </div>
       )}
