@@ -207,11 +207,11 @@ export default function Dokumenty({ user }) {
                       
                       {isAdmin && (
                         <button 
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#e53e3e' }}
-                          title="Usuń dokument z bazy"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center', padding: '5px' }}
+                          title="Usuń dokument"
                           onClick={() => handleDeleteDocument(currentUuid)}
                         >
-                          🗑️
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2-2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                         </button>
                       )}
                     </div>

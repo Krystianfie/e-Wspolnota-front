@@ -249,7 +249,9 @@ export default function Platnosci({ user }) {
                             </button>
                           </div>
                         ) : currentStatus === 'ACCEPTED' ? (
-                          <div className="success-icon"><span style={{ fontSize: '24px' }}>🛡️</span></div>
+                          <div className="success-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
+                          </div>
                         ) : (
                           <span style={{ fontSize: '12px', color: '#a0aec0', fontWeight: 'bold' }}>Brak akcji</span>
                         )
@@ -262,7 +264,9 @@ export default function Platnosci({ user }) {
                             Zarejestruj
                           </button>
                         ) : currentStatus === 'ACCEPTED' ? (
-                          <div className="success-icon"><span style={{ fontSize: '24px' }}>🛡️</span></div>
+                          <div className="success-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
+                          </div>
                         ) : currentStatus === 'REJECTED' ? (
                           <span style={{ fontSize: '12px', color: '#ef4444', fontWeight: 'bold' }}>Odrzucona</span>
                         ) : (
@@ -272,11 +276,11 @@ export default function Platnosci({ user }) {
                       </div>
                       {isAdmin && (
                         <button 
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#e53e3e', padding: '0 5px' }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'flex', alignItems: 'center', padding: '5px' }}
                           title="Usuń płatność"
                           onClick={() => handleDeletePayment(currentUuid)}
                         >
-                          🗑️
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2-2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                         </button>
                       )}
                     </div>
