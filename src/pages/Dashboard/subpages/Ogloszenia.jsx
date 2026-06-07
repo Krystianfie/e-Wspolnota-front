@@ -259,21 +259,18 @@ export default function Ogloszenia() {
 
       <div className="tabs-row">
         {filtry.map(f => {
-          let tabClass = 'tab-pill shadow-card ';
+          let tabClass = 'tab-pill ';
           if (activeFilter === f) {
-            if (f === 'Wszystkie') tabClass += 'tab-blue';
-            else if (f === 'WAŻNE') tabClass += 'tab-red';
-            else tabClass += 'tab-active-grey';
+            if (f === 'WAŻNE') tabClass += 'tab-red';
+            else tabClass += 'tab-blue';
           } else {
-            if (f === 'WAŻNE') tabClass += 'tab-red-inactive';
-            else tabClass += 'tab-white';
+            tabClass += 'tab-white';
           }
 
           return (
             <button 
               key={f}
               className={tabClass}
-              style={{ border: 'none', padding: '10px 25px', borderRadius: '15px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
               onClick={() => setActiveFilter(f)}
             >
               {f}
