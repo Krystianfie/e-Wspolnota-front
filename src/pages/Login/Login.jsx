@@ -2,6 +2,54 @@ import { useState } from 'react';
 import { apiJson } from '../../api/client';
 import './Login.css';
 
+const getApiErrorMessage = async (error, fallbackMessage) => {
+  const response = error?.response;
+  if (!response) return fallbackMessage;
+
+  try {
+    const contentType = response.headers.get('content-type') || '';
+    const payload = contentType.includes('application/json')
+      ? await response.json()
+      : await response.text();
+
+    let extractedMessage = fallbackMessage;
+
+    if (typeof payload === 'string') {
+      extractedMessage = payload || fallbackMessage;
+    } else {
+      const fieldError = Array.isArray(payload?.errors)
+        ? payload.errors.find(Boolean)
+        : null;
+
+      extractedMessage = (
+        payload?.msg ||
+        payload?.message ||
+        payload?.error ||
+        fieldError?.msg ||
+        fieldError?.message ||
+        fieldError ||
+        fallbackMessage
+      );
+    }
+
+    // Automatyczne tłumaczenie angielskich błędów z backendu na polski
+    if (typeof extractedMessage === 'string') {
+      const lowerMsg = extractedMessage.toLowerCase();
+      if (lowerMsg.includes('bad credentials')) return 'Błędny login lub hasło.';
+      if (lowerMsg.includes('invalid password')) return 'Nieprawidłowe hasło.';
+      if (lowerMsg.includes('user not found')) return 'Nie znaleziono takiego użytkownika.';
+      if (lowerMsg.includes('disabled')) return 'Konto zostało wyłączone.';
+      if (lowerMsg.includes('locked')) return 'Konto jest zablokowane.';
+      if (lowerMsg.includes('expired')) return 'Konto lub sesja wygasła.';
+      if (lowerMsg.includes('unauthorized')) return 'Błędne dane logowania (Brak autoryzacji).';
+    }
+
+    return extractedMessage;
+  } catch {
+    return fallbackMessage;
+  }
+};
+
 export default function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -32,7 +80,8 @@ export default function Login({ onLogin }) {
       await onLogin(data, username);
     } catch (err) {
       console.error('Błąd połączenia z serwerem:', err);
-      setError(err.status === 401 ? 'Błędny login lub hasło.' : 'Brak połączenia z serwerem API.');
+      const errorMessage = await getApiErrorMessage(err, err.status === 401 ? 'Błędny login lub hasło.' : 'Brak połączenia z serwerem API.');
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
