@@ -1,4 +1,4 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://ketyo.online';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://ketyo.online';
 
 export class ApiError extends Error {
   constructor(response, message = 'Błąd połączenia z API') {
