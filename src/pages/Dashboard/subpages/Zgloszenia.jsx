@@ -16,6 +16,7 @@ export default function Zgloszenia({ user }) {
   // Stany wyszukiwania i filtrowania
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterDate, setFilterDate] = useState('');
 
   const [ticketsData, setTicketsData] = useState([]);
 
@@ -155,7 +156,25 @@ export default function Zgloszenia({ user }) {
     const ticketPolishStatus = getStatusLabel(ticket.status);
     const matchesStatus = filterStatus ? ticketPolishStatus === filterStatus : true;
     
-    return matchesSearch && matchesStatus;
+    let matchesDate = true;
+    if (filterDate) {
+      const dateString = ticket.createdDate || ticket.createdAt || ticket.date;
+      if (dateString) {
+        const ticketDateObj = new Date(dateString);
+        if (!isNaN(ticketDateObj.getTime())) {
+          const year = ticketDateObj.getFullYear();
+          const month = String(ticketDateObj.getMonth() + 1).padStart(2, '0');
+          const day = String(ticketDateObj.getDate()).padStart(2, '0');
+          matchesDate = `${year}-${month}-${day}` === filterDate;
+        } else {
+          matchesDate = false;
+        }
+      } else {
+        matchesDate = false;
+      }
+    }
+    
+    return matchesSearch && matchesStatus && matchesDate;
   });
 
   return (
@@ -209,7 +228,13 @@ export default function Zgloszenia({ user }) {
                   <div className="col-title" style={{ width: '45%' }}>{ticket.title || 'Brak tytułu'}</div>
                   
                   <div className="col-date" style={{ width: '20%' }}>
-                    {ticket.createdDate ? new Date(ticket.createdDate).toLocaleDateString('pl-PL') : 'Brak daty'}
+                    {(ticket.createdDate || ticket.createdAt || ticket.date) ? (
+                      new Date(ticket.createdDate || ticket.createdAt || ticket.date).toLocaleDateString('pl-PL', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })
+                    ) : 'Brak daty'}
                   </div>
                   
                   <div className="col-status" style={{ width: '15%' }}>
@@ -294,7 +319,12 @@ export default function Zgloszenia({ user }) {
         <div className="modal-overlay">
           <div className="modal-box">
             <h3 className="modal-label">Data zgłoszenia</h3>
-            <input type="date" className="modal-input" />
+            <input 
+              type="date" 
+              className="modal-input" 
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+            />
 
             <h3 className="modal-label">Status zgłoszenia</h3>
             <div className="modal-category-row" style={{ flexWrap: 'wrap', gap: '10px' }}>
@@ -311,7 +341,7 @@ export default function Zgloszenia({ user }) {
 
             <div className="modal-buttons" style={{ marginTop: '40px' }}>
               <button className="modal-btn-save" onClick={() => setIsFilterModalOpen(false)}>Aplikuj</button>
-              <button className="modal-btn-cancel" onClick={() => { setFilterStatus(''); setIsFilterModalOpen(false); }}>Wyczyść</button>
+              <button className="modal-btn-cancel" onClick={() => { setFilterStatus(''); setFilterDate(''); setIsFilterModalOpen(false); }}>Wyczyść</button>
             </div>
           </div>
         </div>

@@ -118,10 +118,6 @@ export default function Dokumenty({ user }) {
         <h1 style={{ fontWeight: 'bold' }}>Dokumenty</h1>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#e2e8f0', padding: '8px 15px', borderRadius: '10px', fontSize: '13px' }}>
-            <span style={{ fontWeight: 'bold' }}>Widok: {isAdmin ? 'administrator' : 'użytkownik'}</span>
-          </div>
-
           {isAdmin && (
             <button className="add-btn-blue" onClick={() => setIsAddModalOpen(true)}>
               + Dodaj dokument
@@ -176,6 +172,7 @@ export default function Dokumenty({ user }) {
           <div className="table-body">
             {filteredDocuments.map((doc, index) => {
               const currentUuid = doc.uuid || doc.documentId || doc.id;
+              const dateString = doc.uploadedDate || doc.uploadDate || doc.createdDate || doc.createdAt || doc.date || doc.updatedAt;
               
               return (
                 <div key={currentUuid || `doc-${index}`}>
@@ -190,7 +187,7 @@ export default function Dokumenty({ user }) {
                       <span className="badge-pill badge-grey">{typeLabels[doc.type] || doc.type || 'Inne'}</span>
                     </div>
                     <div style={{ width: '15%', color: '#a0aec0', fontSize: '13px' }}>
-                      {doc.uploadDate || doc.createdDate ? new Date(doc.uploadDate || doc.createdDate).toLocaleDateString('pl-PL') : '---'}
+                      {dateString ? new Date(dateString).toLocaleDateString('pl-PL') : '---'}
                     </div>
                     
                     <div style={{ width: '10%', display: 'flex', justifyContent: 'center', gap: '15px', alignItems: 'center' }}>

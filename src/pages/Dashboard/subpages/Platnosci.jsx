@@ -175,10 +175,6 @@ export default function Platnosci({ user }) {
         <h1 style={{ fontWeight: 'bold' }}>Płatności</h1>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#e2e8f0', padding: '8px 15px', borderRadius: '10px', fontSize: '13px' }}>
-            <span style={{ fontWeight: 'bold' }}>Widok: {isAdmin ? 'administrator' : 'użytkownik'}</span>
-          </div>
-
           {isAdmin && (
             <button className="add-btn-blue" onClick={(e) => { e.stopPropagation(); setIsAddModalOpen(true); }}>
               + Dodaj płatność
