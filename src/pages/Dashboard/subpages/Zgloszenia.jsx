@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { apiFetch, apiJson, toArray } from '../../../api/client';
+import { isAdminUser } from '../../../utils/user';
 
-export default function Zgloszenia() {
+export default function Zgloszenia({ user }) {
+  const [currentUser, setCurrentUser] = useState(user || null);
+  const isAdmin = isAdminUser(currentUser);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -17,8 +20,21 @@ export default function Zgloszenia() {
   const [ticketsData, setTicketsData] = useState([]);
 
   useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const data = await apiJson('/api/user/me');
+        setCurrentUser(data?.user || data);
+      } catch (error) {
+        console.error('Błąd pobierania danych aktualnego użytkownika:', error);
+      }
+    };
+
+    if (!user) {
+      fetchUser();
+    }
+
     fetchReports();
-  }, []);
+  }, [user]);
 
   // POBIERANIE ZGŁOSZEŃ
   const fetchReports = async () => {
@@ -87,6 +103,28 @@ export default function Zgloszenia() {
     }
   };
 
+  // ZMIANA STATUSU ZGŁOSZENIA
+  const handleUpdateStatus = async (reportId, newStatus) => {
+    if (!reportId) return;
+    try {
+      try {
+        await apiJson(`/api/reports/update/${reportId}`, {
+          method: 'PATCH',
+          json: { status: newStatus }
+        });
+      } catch (err1) {
+        await apiJson(`/api/reports/update/${reportId}`, {
+          method: 'PUT',
+          json: { status: newStatus }
+        });
+      }
+      await fetchReports();
+    } catch (error) {
+      console.error('Błąd zmiany statusu:', error);
+      alert('Nie udało się zaktualizować statusu zgłoszenia.');
+    }
+  };
+
   // PRZENIESIONE FUNKCJE POMOCNICZE 
   const getBadgeClass = (status) => {
     if (status === 'W trakcie' || status === 'IN_PROGRESS') return 'badge-orange';
@@ -100,6 +138,13 @@ export default function Zgloszenia() {
     if (status === 'NEW' || status === 'OPEN') return 'Nowe';
     if (status === 'RESOLVED' || status === 'CLOSED') return 'Zakończone';
     return status || 'Nieznany';
+  };
+
+  const getNormalizedStatusValue = (status) => {
+    if (status === 'Nowe' || status === 'OPEN') return 'NEW';
+    if (status === 'W trakcie') return 'IN_PROGRESS';
+    if (status === 'Zakończone' || status === 'RESOLVED') return 'CLOSED';
+    return status || 'NEW';
   };
 
   // FILTROWANIE DANYCH 
@@ -168,19 +213,42 @@ export default function Zgloszenia() {
                   </div>
                   
                   <div className="col-status" style={{ width: '15%' }}>
-                    <span className={`badge-pill ${getBadgeClass(ticket.status)}`}>
-                      {getStatusLabel(ticket.status)}
-                    </span>
+                    {isAdmin ? (
+                      <select
+                        className={`badge-pill ${getBadgeClass(ticket.status)}`}
+                        value={getNormalizedStatusValue(ticket.status)}
+                        onChange={(e) => handleUpdateStatus(ticket.uuid || ticket.reportId || ticket.id, e.target.value)}
+                        style={{
+                          cursor: 'pointer',
+                          border: 'none',
+                          outline: 'none',
+                          fontWeight: 'bold',
+                          fontFamily: 'inherit',
+                          padding: '6px 10px'
+                        }}
+                        title="Zmień status zgłoszenia"
+                      >
+                        <option value="NEW" style={{color: '#1a202c', background: '#fff'}}>Nowe</option>
+                        <option value="IN_PROGRESS" style={{color: '#1a202c', background: '#fff'}}>W trakcie</option>
+                        <option value="CLOSED" style={{color: '#1a202c', background: '#fff'}}>Zakończone</option>
+                      </select>
+                    ) : (
+                      <span className={`badge-pill ${getBadgeClass(ticket.status)}`} style={{ display: 'inline-block' }}>
+                        {getStatusLabel(ticket.status)}
+                      </span>
+                    )}
                   </div>
                   
                   <div className="col-actions" style={{ width: '10%', textAlign: 'center' }}>
-                    <button 
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#e53e3e' }}
-                      title="Usuń zgłoszenie"
-                      onClick={() => handleDeleteTicket(ticket.uuid || ticket.reportId || ticket.id)}
-                    >
-                      🗑️
-                    </button>
+                    {isAdmin && (
+                      <button 
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#e53e3e' }}
+                        title="Usuń zgłoszenie"
+                        onClick={() => handleDeleteTicket(ticket.uuid || ticket.reportId || ticket.id)}
+                      >
+                        🗑️
+                      </button>
+                    )}
                   </div>
 
                 </div>

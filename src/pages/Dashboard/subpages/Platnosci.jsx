@@ -147,6 +147,28 @@ export default function Platnosci({ user }) {
     }
   };
 
+  const handleDeletePayment = async (uuid) => {
+    if (!uuid) {
+      alert('Nie można usunąć płatności bez identyfikatora.');
+      return;
+    }
+
+    const confirmed = window.confirm('Czy na pewno chcesz usunąć tę płatność?');
+    if (!confirmed) return;
+
+    try {
+      try {
+        await apiJson(`/api/payments/delete/${uuid}`, { method: 'DELETE' });
+      } catch (err1) {
+        await apiJson(`/api/payments/${uuid}`, { method: 'DELETE' });
+      }
+      await fetchPayments();
+    } catch (error) {
+      console.error('Błąd usuwania płatności:', error);
+      alert('Nie udało się usunąć płatności.');
+    }
+  };
+
   return (
     <div className="subpage-container" onClick={() => setIsDropdownOpen(false)}>
       <div className="subpage-header" style={{ marginBottom: '40px' }}>
@@ -202,10 +224,11 @@ export default function Platnosci({ user }) {
                       </span>
                     </div>
                     
-                    <div className="col-akcje">
-                      {isAdmin ? (
-                        currentStatus === 'PENDING' ? (
-                          <div style={{ display: 'flex', gap: '10px' }}>
+                    <div className="col-akcje" style={{ justifyContent: 'space-between', gap: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        {isAdmin ? (
+                          currentStatus === 'PENDING' ? (
+                            <div style={{ display: 'flex', gap: '10px' }}>
                             <button 
                               className="register-btn" 
                               style={{ backgroundColor: '#10b981', boxShadow: '0 4px 6px rgba(16, 185, 129, 0.3)' }}
@@ -245,6 +268,16 @@ export default function Platnosci({ user }) {
                         ) : (
                           <span style={{ fontSize: '12px', color: '#718096', fontWeight: 'bold' }}>Weryfikacja...</span>
                         )
+                      )}
+                      </div>
+                      {isAdmin && (
+                        <button 
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#e53e3e', padding: '0 5px' }}
+                          title="Usuń płatność"
+                          onClick={() => handleDeletePayment(currentUuid)}
+                        >
+                          🗑️
+                        </button>
                       )}
                     </div>
                   </div>
