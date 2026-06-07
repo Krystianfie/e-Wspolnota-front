@@ -177,7 +177,13 @@ export default function Inicjatywy() {
 
   const isInitiativeExpired = (initiative) => {
     const deadlineDate = getDeadlineDate(initiative?.deadline);
-    return deadlineDate ? deadlineDate < new Date() : false;
+    const isPastDeadline = deadlineDate ? deadlineDate < new Date() : false;
+    
+    const upvotes = getVoteCount(initiative, ['upvotes', 'upVotes', 'votesFor', 'forVotes', 'yesVotes']);
+    const downvotes = getVoteCount(initiative, ['downvotes', 'downVotes', 'votesAgainst', 'againstVotes', 'noVotes']);
+    const isFullyVoted = totalUsers > 0 && (upvotes + downvotes) >= totalUsers;
+
+    return isPastDeadline || isFullyVoted;
   };
 
   const filtry = ['Wszystkie', 'Aktywne', 'Wygasłe'];

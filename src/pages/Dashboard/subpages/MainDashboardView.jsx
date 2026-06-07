@@ -106,11 +106,13 @@ function MainDashboardView({ user }) {
       );
 
       // AKTYWNE GŁOSOWANIA
-      const activeInitiatives = initiativesData.filter(
-        initiative =>
-          initiative.deadline &&
-          new Date(initiative.deadline) > new Date()
-      ).length;
+      const activeInitiatives = initiativesData.filter((initiative) => {
+        const isPastDeadline = !initiative.deadline || new Date(initiative.deadline) < new Date();
+        const upvotes = Number(initiative.upvotes || initiative.upVotes || 0);
+        const downvotes = Number(initiative.downvotes || initiative.downVotes || 0);
+        const isFullyVoted = usersData.length > 0 && (upvotes + downvotes) >= usersData.length;
+        return !isPastDeadline && !isFullyVoted;
+      }).length;
 
       setStats({
         paymentsAmount,
@@ -224,7 +226,8 @@ function MainDashboardView({ user }) {
     reportsData,
     initiativesData,
     messagesData,
-    logoutDate
+    logoutDate,
+    totalUsersCount
   ) => {
     const paymentsAmount = paymentsData
       .filter(
@@ -246,11 +249,13 @@ function MainDashboardView({ user }) {
       ? Number(unreadMessagesCount || 0)
       : messagesData.reduce((sum, thread) => sum + Number(thread.unreadCount || thread.unread || 0), 0);
 
-    const activeInitiatives = initiativesData.filter(
-      (initiative) =>
-        initiative.deadline &&
-        new Date(initiative.deadline) > new Date()
-    ).length;
+    const activeInitiatives = initiativesData.filter((initiative) => {
+      const isPastDeadline = !initiative.deadline || new Date(initiative.deadline) < new Date();
+      const upvotes = Number(initiative.upvotes || initiative.upVotes || 0);
+      const downvotes = Number(initiative.downvotes || initiative.downVotes || 0);
+      const isFullyVoted = totalUsersCount > 0 && (upvotes + downvotes) >= totalUsersCount;
+      return !isPastDeadline && !isFullyVoted;
+    }).length;
 
     return {
       paymentsAmount,
@@ -267,10 +272,11 @@ function MainDashboardView({ user }) {
         reportsAll,
         initiatives,
         messageThreads,
-        lastLogoutAt
+        lastLogoutAt,
+        totalUsers
       )
     );
-  }, [payments, reportsAll, initiatives, messageThreads, lastLogoutAt, unreadMessagesCount]);
+  }, [payments, reportsAll, initiatives, messageThreads, lastLogoutAt, unreadMessagesCount, totalUsers]);
 
   const getInitiativePercentage = (initiative) => {
     const rawPercentage =
@@ -290,11 +296,13 @@ function MainDashboardView({ user }) {
   const latestInitiatives =
     initiatives.length > 0
       ? [...initiatives]
-          .filter(
-            (initiative) =>
-              initiative.deadline &&
-              new Date(initiative.deadline) > new Date()
-          )
+          .filter((initiative) => {
+            const isPastDeadline = !initiative.deadline || new Date(initiative.deadline) < new Date();
+            const upvotes = Number(initiative.upvotes || initiative.upVotes || 0);
+            const downvotes = Number(initiative.downvotes || initiative.downVotes || 0);
+            const isFullyVoted = totalUsers > 0 && (upvotes + downvotes) >= totalUsers;
+            return !isPastDeadline && !isFullyVoted;
+          })
           .sort(
             (a, b) =>
               new Date(b.createdDate || b.createdAt) -
