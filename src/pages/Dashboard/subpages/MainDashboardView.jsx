@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiJson, toArray } from '../../../api/client';
-import { getUserId } from '../../../utils/user';
+import { getUserId, isAdminUser } from '../../../utils/user';
 import StatCard from '../components/StatCard';
 import WidgetList from '../components/WidgetList';
 import InitiativeWidget from '../components/InitiativeWidget';
@@ -24,6 +24,8 @@ function MainDashboardView({ user }) {
     activeInitiatives: 0,
   });
 
+  const isAdmin = isAdminUser(currentUser || user);
+
   const fetchData = useCallback(async () => {
     try {
       const [
@@ -35,8 +37,8 @@ function MainDashboardView({ user }) {
         usersResponse,
       ] = await Promise.all([
         apiJson('/api/announcements'),
-        apiJson('/api/reports', { query: userId ? { reporterId: userId } : {} }),
-        apiJson('/api/payments', { query: userId ? { payerId: userId } : {} }),
+        apiJson('/api/reports', { query: isAdmin ? {} : (userId ? { reporterId: userId } : {}) }),
+        apiJson('/api/payments', { query: isAdmin ? {} : (userId ? { payerId: userId } : {}) }),
         apiJson('/api/messaging/threads'),
         apiJson('/api/initiatives'),
         apiJson('/api/user'),
@@ -136,11 +138,11 @@ function MainDashboardView({ user }) {
         activeInitiatives: 0,
       });
     }
-  }, [userId]);
+  }, [userId, isAdmin]);
 
   useEffect(() => {
     fetchData();
-  }, [userId]);
+  }, [fetchData]);
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -328,9 +330,9 @@ function MainDashboardView({ user }) {
         }}
       >
         <StatCard
-          title="Należności"
+          title={isAdmin ? "Należności" : "Zaległości"}
           value={`${stats.paymentsAmount.toFixed(2)} zł`}
-          subtext="Do zapłaty"
+          subtext={isAdmin ? "Do otrzymania" : "Do zapłaty"}
           type="payment"
         />
 
@@ -344,7 +346,7 @@ function MainDashboardView({ user }) {
         <StatCard
           title="Wiadomości"
           value={stats.unreadMessages}
-          subtext="Nieprzeczytane"
+          subtext="Nowe od ostatniego logowania"
           type="messages"
         />
 
@@ -406,7 +408,7 @@ function MainDashboardView({ user }) {
             }}
           >
             <h3 style={{ fontWeight: 'bold' }}>
-              Moje zgłoszenia
+              {isAdmin ? 'Ostatnie zgłoszenia' : 'Moje zgłoszenia'}
             </h3>
           </div>
 
